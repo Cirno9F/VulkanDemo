@@ -1,12 +1,15 @@
 #pragma once
 
 #include "Application.h"
+#include "Log.h"
 
 #include <iostream>
 
 int main(int argc, char** argv)
 {
-	std::cout << "Start VulkanDemo!" << std::endl;	
+	Log::Init();
+	LOG_INFO("Start!");
+
 
 	Application* app = new Application();
 

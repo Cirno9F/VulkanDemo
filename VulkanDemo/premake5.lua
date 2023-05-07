@@ -12,6 +12,7 @@ project "VulkanDemo"
       "../vendor/glfw/include",
       "../vendor/stb_image",
       "../vendor/glm",
+      "../vendor/spdlog/include",
 
       "%{IncludeDir.VulkanSDK}",
    }

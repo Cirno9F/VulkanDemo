@@ -1,13 +1,36 @@
 #include "Application.h"
+#include "Context.h"
 
 Application::Application(const std::string& name, uint32_t width, uint32_t height)
 	:m_Name(name), m_Width(width), m_Height(height)
 {
 	InitWindow();
+
+	uint32_t glfwExtensionCount = 0;
+	const char** glfwExtensions;
+	glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+	std::vector<const char*> requiredExtensions;
+	for (uint32_t i = 0; i < glfwExtensionCount; i++)
+	{
+		requiredExtensions.emplace_back(glfwExtensions[i]);
+		LOG_TRACE("Extension: {0}" , glfwExtensions[i]);
+	}
+
+	Context::Init(m_Width,
+		m_Height,
+		requiredExtensions,
+		[&](vk::Instance instance)
+		{
+			VkSurfaceKHR surface;
+			ASSERT_IFNOT(glfwCreateWindowSurface(instance, m_Window, nullptr, &surface) == VK_SUCCESS, "glfwCreateWindowSurface failed!");
+			return surface;
+		});
 }
 
 Application::~Application()
 {
+	Context::Close();
+
 	glfwDestroyWindow(m_Window);
 	glfwTerminate();
 

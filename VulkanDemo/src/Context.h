@@ -2,6 +2,8 @@
 
 #include "Base.h"
 #include "SwapChain.h"
+#include "RenderProcess.h"
+#include "Shader.h"
 
 #include <vulkan/vulkan.hpp>
 #include <memory>
@@ -26,6 +28,7 @@ public:
 	static void Close();
 public:
 	static Context* s_Context;
+	static Ref<Shader> s_TestShader;
 
 	vk::Instance m_Instance;
 	vk::PhysicalDevice m_PhysicalDevice;
@@ -34,6 +37,7 @@ public:
 	vk::Queue m_PresentQueue;
 	vk::SurfaceKHR m_Surface;
 	Scope<SwapChain> m_SwapChain;
+	Scope<RenderProcess> m_RenderProcess;
 	QueueFamilyIndices m_QueueFamilyIndices;
 private:
 	Context(const std::vector<const char*>& requiredExtensions, CreateSurfaceFunc createSurfaceFunc);

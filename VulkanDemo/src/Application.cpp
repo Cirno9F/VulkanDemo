@@ -6,6 +6,7 @@ Application::Application(const std::string& name, uint32_t width, uint32_t heigh
 {
 	InitWindow();
 
+	//glfw
 	uint32_t glfwExtensionCount = 0;
 	const char** glfwExtensions;
 	glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
@@ -16,6 +17,7 @@ Application::Application(const std::string& name, uint32_t width, uint32_t heigh
 		LOG_TRACE("Extension: {0}" , glfwExtensions[i]);
 	}
 
+	//context
 	Context::Init(m_Width,
 		m_Height,
 		requiredExtensions,
@@ -29,8 +31,10 @@ Application::Application(const std::string& name, uint32_t width, uint32_t heigh
 
 Application::~Application()
 {
+	//context
 	Context::Close();
 
+	//glfw
 	glfwDestroyWindow(m_Window);
 	glfwTerminate();
 

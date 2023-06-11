@@ -1,16 +1,28 @@
 #include "Context.h"
+#include "Utils.h"
 
 Context* Context::s_Context = nullptr;
+Ref<Shader> Context::s_TestShader = nullptr;
+
 
 void Context::Init(uint32_t width, uint32_t height, const std::vector<const char*>& requiredExtensions, CreateSurfaceFunc createSurfaceFunc)
 {
 	s_Context = new Context(requiredExtensions, createSurfaceFunc);
+
+	//shader
+	s_TestShader = Shader::Create(ReadFile("assets/shader/vert.spv"), ReadFile("assets/shader/frag.spv"));
+
 	s_Context->m_SwapChain = CreateScope<SwapChain>(width, height);
+	s_Context->m_RenderProcess = CreateScope<RenderProcess>(width, height);
 }
 
 void Context::Close()
 {
+	//shader
+	s_TestShader = nullptr;
+
 	s_Context->m_SwapChain = nullptr;
+	s_Context->m_RenderProcess = nullptr;
 
 	delete s_Context;
 	s_Context = nullptr;

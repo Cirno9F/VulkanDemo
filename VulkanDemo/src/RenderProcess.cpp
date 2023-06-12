@@ -1,6 +1,7 @@
 #include "RenderProcess.h"
 #include "Application.h"
 #include "Context.h"
+#include "SwapChain.h"
 
 RenderProcess::RenderProcess()
 {
@@ -8,12 +9,57 @@ RenderProcess::RenderProcess()
 
 RenderProcess::RenderProcess(uint32_t width, uint32_t height)
 {
+	InitLayout();
+	InitRenderPass();
 	InitPipeline(width, height);
 }
 
 RenderProcess::~RenderProcess()
 {
-	DestroyPipeline();
+	auto& device = Context::s_Context->m_Device;
+	device.destroyRenderPass(m_RenderPass);
+	device.destroyPipelineLayout(m_PipelineLayout);
+	device.destroyPipeline(m_Pipeline);
+}
+
+void RenderProcess::InitLayout()
+{
+	vk::PipelineLayoutCreateInfo createInfo;
+	m_PipelineLayout = Context::s_Context->m_Device.createPipelineLayout(createInfo);
+}
+
+void RenderProcess::InitRenderPass()
+{
+	vk::RenderPassCreateInfo rpci;
+	vk::AttachmentDescription ad;
+	ad.setFormat(Context::s_Context->m_SwapChain->m_SwapChainInfo.Format.format)
+		.setInitialLayout(vk::ImageLayout::eUndefined)
+		.setFinalLayout(vk::ImageLayout::eColorAttachmentOptimal)
+		.setLoadOp(vk::AttachmentLoadOp::eClear)
+		.setStoreOp(vk::AttachmentStoreOp::eStore)
+		.setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+		.setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+		.setSamples(vk::SampleCountFlagBits::e1);
+	rpci.setAttachments(ad);
+
+	vk::AttachmentReference af;
+	af.setLayout(vk::ImageLayout::eColorAttachmentOptimal)
+		.setAttachment(0);
+	vk::SubpassDescription sd;
+	sd.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
+		.setColorAttachments(af);
+
+	rpci.setSubpasses(sd);
+
+	vk::SubpassDependency dependency;
+	dependency.setSrcSubpass(VK_SUBPASS_EXTERNAL)
+		.setDstSubpass(0)
+		.setDstAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
+		.setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
+		.setDstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput);
+	rpci.setDependencies(dependency);
+
+	m_RenderPass = Context::s_Context->m_Device.createRenderPass(rpci);
 }
 
 void RenderProcess::InitPipeline(uint32_t width, uint32_t height)
@@ -70,16 +116,13 @@ void RenderProcess::InitPipeline(uint32_t width, uint32_t height)
 		.setAttachments(attachmentState);
 	createInfo.setPColorBlendState(&blendInfo);
 
-	//layout
-	//renderpass
+	//layout & renderpass
+	createInfo.setRenderPass(m_RenderPass)
+		.setLayout(m_PipelineLayout);
+
 
 	auto result = Context::s_Context->m_Device.createGraphicsPipeline(nullptr, createInfo);
 	ASSERT_IFNOT(result.result == vk::Result::eSuccess, "Create graphics pipeline failed!");
 	m_Pipeline = result.value;
 
-}
-
-void RenderProcess::DestroyPipeline()
-{
-	Context::s_Context->m_Device.destroyPipeline(m_Pipeline);
 }

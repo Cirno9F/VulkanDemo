@@ -21,8 +21,8 @@ void Context::Close()
 	//shader
 	s_TestShader = nullptr;
 
-	s_Context->m_SwapChain = nullptr;
 	s_Context->m_RenderProcess = nullptr;
+	s_Context->m_SwapChain = nullptr;
 
 	delete s_Context;
 	s_Context = nullptr;

@@ -34,7 +34,7 @@ void RenderProcess::InitRenderPass()
 	vk::AttachmentDescription ad;
 	ad.setFormat(Context::s_Context->m_SwapChain->m_SwapChainInfo.Format.format)
 		.setInitialLayout(vk::ImageLayout::eUndefined)
-		.setFinalLayout(vk::ImageLayout::eColorAttachmentOptimal)
+		.setFinalLayout(vk::ImageLayout::ePresentSrcKHR)
 		.setLoadOp(vk::AttachmentLoadOp::eClear)
 		.setStoreOp(vk::AttachmentStoreOp::eStore)
 		.setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
@@ -48,7 +48,6 @@ void RenderProcess::InitRenderPass()
 	vk::SubpassDescription sd;
 	sd.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
 		.setColorAttachments(af);
-
 	rpci.setSubpasses(sd);
 
 	vk::SubpassDependency dependency;
@@ -91,7 +90,7 @@ void RenderProcess::InitPipeline(uint32_t width, uint32_t height)
 	vk::PipelineRasterizationStateCreateInfo rasterizationInfo;
 	rasterizationInfo.setRasterizerDiscardEnable(false)
 		.setCullMode(vk::CullModeFlagBits::eBack)
-		.setFrontFace(vk::FrontFace::eCounterClockwise)
+		.setFrontFace(vk::FrontFace::eClockwise)
 		.setPolygonMode(vk::PolygonMode::eFill)
 		.setLineWidth(1);
 	createInfo.setPRasterizationState(&rasterizationInfo);

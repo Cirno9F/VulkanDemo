@@ -4,6 +4,7 @@
 #include "SwapChain.h"
 #include "RenderProcess.h"
 #include "Shader.h"
+#include "Renderer.h"
 
 #include <vulkan/vulkan.hpp>
 #include <memory>
@@ -38,6 +39,7 @@ public:
 	vk::SurfaceKHR m_Surface;
 	Scope<SwapChain> m_SwapChain;
 	Scope<RenderProcess> m_RenderProcess;
+	Scope<Renderer> m_Renderer;
 	QueueFamilyIndices m_QueueFamilyIndices;
 private:
 	Context(const std::vector<const char*>& requiredExtensions, CreateSurfaceFunc createSurfaceFunc);

@@ -18,6 +18,7 @@ public:
 	SwapChainInfo m_SwapChainInfo;
 	std::vector<vk::Image> m_Images;
 	std::vector<vk::ImageView> m_ImageViews;
+	std::vector<vk::Framebuffer> m_FrameBuffers;
 public:
 	SwapChain(uint32_t width, uint32_t height);
 	~SwapChain();
@@ -25,5 +26,6 @@ public:
 	void QueryInfo(uint32_t width, uint32_t height);
 	void GetImages();
 	void CreateImageViews();
+	void CreateFrameBuffers(uint32_t width, uint32_t height);
 private:
 };

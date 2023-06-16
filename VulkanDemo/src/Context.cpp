@@ -13,11 +13,20 @@ void Context::Init(uint32_t width, uint32_t height, const std::vector<const char
 	s_TestShader = Shader::Create(ReadFile("assets/shader/vert.spv"), ReadFile("assets/shader/frag.spv"));
 
 	s_Context->m_SwapChain = CreateScope<SwapChain>(width, height);
-	s_Context->m_RenderProcess = CreateScope<RenderProcess>(width, height);
+	s_Context->m_RenderProcess = CreateScope<RenderProcess>();
+	s_Context->m_RenderProcess->InitRenderPass();
+	s_Context->m_RenderProcess->InitLayout();
+	s_Context->m_SwapChain->CreateFrameBuffers(width, height);
+	s_Context->m_RenderProcess->InitPipeline(width,height);
+	s_Context->m_Renderer = CreateScope<Renderer>();
 }
 
 void Context::Close()
 {
+	s_Context->m_Device.waitIdle();
+
+	s_Context->m_Renderer = nullptr;
+
 	//shader
 	s_TestShader = nullptr;
 

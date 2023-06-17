@@ -18,6 +18,7 @@ void Context::Init(uint32_t width, uint32_t height, const std::vector<const char
 	s_Context->m_RenderProcess->InitLayout();
 	s_Context->m_SwapChain->CreateFrameBuffers(width, height);
 	s_Context->m_RenderProcess->InitPipeline(width,height);
+	s_Context->m_CommandManager = CreateScope<CommandManager>();
 	s_Context->m_Renderer = CreateScope<Renderer>();
 }
 
@@ -26,6 +27,7 @@ void Context::Close()
 	s_Context->m_Device.waitIdle();
 
 	s_Context->m_Renderer = nullptr;
+	s_Context->m_CommandManager = nullptr;
 
 	//shader
 	s_TestShader = nullptr;

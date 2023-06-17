@@ -47,7 +47,7 @@ void Application::Run()
 	{
 		glfwPollEvents();
 
-		Context::s_Context->m_Renderer->Render();
+		Context::s_Context->m_Renderer->DrawTriangle();
 	}
 }
 

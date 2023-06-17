@@ -1,24 +1,25 @@
 #pragma once
 
 #include "vulkan/vulkan.hpp"
+#include <vector>
 
 class Renderer
 {
 public:
-	Renderer();
+	Renderer(uint32_t maxFlightCount = 2);
 	~Renderer();
 
-	void Render();
+	void DrawTriangle();
 private:
-	vk::CommandPool m_CommandPool;
-	vk::CommandBuffer m_CommandBuffer;
+    std::vector<vk::CommandBuffer> m_CommandBuffers;
+	std::vector<vk::Semaphore> m_SemaphoreImageAvaliables;
+	std::vector<vk::Semaphore> m_SemaphoreImageDrawFinishs;
+	std::vector<vk::Fence> m_Fences;
 
-	vk::Semaphore m_SemaphoreImageAvaliable;
-	vk::Semaphore m_SemaphoreImageDrawFinish;
-	vk::Fence m_AvailableFence;
-
-	void InitCommandPool();
-	void AllocCommandBuffer();
+	void CreateCommandBuffers();
 	void CreateSemaphores();
-	void CreateFence();
+	void CreateFences();
+
+	uint32_t m_MaxFlightCount;
+	uint32_t m_CurFrame;
 };

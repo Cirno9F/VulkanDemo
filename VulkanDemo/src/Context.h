@@ -5,6 +5,7 @@
 #include "RenderProcess.h"
 #include "Shader.h"
 #include "Renderer.h"
+#include "CommandManager.h"
 
 #include <vulkan/vulkan.hpp>
 #include <memory>
@@ -40,6 +41,7 @@ public:
 	Scope<SwapChain> m_SwapChain;
 	Scope<RenderProcess> m_RenderProcess;
 	Scope<Renderer> m_Renderer;
+	Scope<CommandManager> m_CommandManager;
 	QueueFamilyIndices m_QueueFamilyIndices;
 private:
 	Context(const std::vector<const char*>& requiredExtensions, CreateSurfaceFunc createSurfaceFunc);

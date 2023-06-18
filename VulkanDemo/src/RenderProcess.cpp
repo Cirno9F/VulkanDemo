@@ -3,6 +3,30 @@
 #include "Context.h"
 #include "SwapChain.h"
 
+#include <glm/glm.hpp>
+
+//TODO: 之后挪个地方
+static vk::VertexInputAttributeDescription GetAttribute()
+{
+	vk::VertexInputAttributeDescription attribute;
+	attribute.setBinding(0)
+		.setFormat(vk::Format::eR32G32Sfloat)
+		.setLocation(0)
+		.setOffset(0);
+	return attribute;
+}
+
+static vk::VertexInputBindingDescription GetBinding()
+{
+	vk::VertexInputBindingDescription binding;
+
+	binding.setBinding(0)
+		.setInputRate(vk::VertexInputRate::eVertex)
+		.setStride(sizeof(glm::vec2));
+
+	return binding;
+}
+
 RenderProcess::RenderProcess()
 {
 }
@@ -67,6 +91,10 @@ void RenderProcess::InitPipeline(uint32_t width, uint32_t height)
 
 	//1. Vertex Input
 	vk::PipelineVertexInputStateCreateInfo inputState;
+	auto attribute = GetAttribute();
+	auto binding = GetBinding();
+	inputState.setVertexBindingDescriptions(binding)
+		.setVertexAttributeDescriptions(attribute);
 	createInfo.setPVertexInputState(&inputState);
 
 	//2. Vertex Assembly

@@ -2,15 +2,29 @@
 #include "Context.h"
 #include "SwapChain.h"
 
+#include <glm/glm.hpp>
+
+static std::array<glm::vec2, 3> vertices =
+{
+	glm::vec2{ 0.0f, -0.8f},
+	glm::vec2{ 0.5f,  0.8f},
+	glm::vec2{-0.5f,  0.8f},
+};
+
 Renderer::Renderer(uint32_t maxFlightCount) : m_MaxFlightCount(maxFlightCount) , m_CurFrame(0)
 {
 	CreateCommandBuffers();
 	CreateSemaphores();
 	CreateFences();
+	CreateVertexBuffer();
+	BufferVertexData();
 }
 
 Renderer::~Renderer()
 {
+	m_HostVertexBuffer = nullptr;
+	m_DeviceVertexBuffer = nullptr;
+
 	auto& device = Context::s_Context->m_Device;
 	auto& cmdMgr = Context::s_Context->m_CommandManager;
 	
@@ -55,6 +69,8 @@ void Renderer::DrawTriangle()
 	m_CommandBuffers[m_CurFrame].begin(beginInfo);
 	m_CommandBuffers[m_CurFrame].beginRenderPass(rpBeginInfo, {});
 	m_CommandBuffers[m_CurFrame].bindPipeline(vk::PipelineBindPoint::eGraphics, Context::s_Context->m_RenderProcess->m_Pipeline);
+	vk::DeviceSize offset = 0;
+	m_CommandBuffers[m_CurFrame].bindVertexBuffers(0, m_DeviceVertexBuffer->m_Buffer, offset);
 	m_CommandBuffers[m_CurFrame].draw(3, 1, 0, 0);
 	m_CommandBuffers[m_CurFrame].endRenderPass();
 	m_CommandBuffers[m_CurFrame].end();
@@ -107,4 +123,44 @@ void Renderer::CreateFences()
 		fence = Context::s_Context->m_Device.createFence(createInfo);
 	}
 
+}
+
+void Renderer::CreateVertexBuffer()
+{
+	//CPU本地存储的vertex buffer， 用来传输数据
+	m_HostVertexBuffer = CreateScope<Buffer>(sizeof(vertices),
+		vk::BufferUsageFlagBits::eTransferSrc,
+		vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
+
+	//GPU存储的vertex buffer
+	m_DeviceVertexBuffer = CreateScope<Buffer>(sizeof(vertices),
+		vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst,
+		vk::MemoryPropertyFlagBits::eDeviceLocal);
+}
+
+void Renderer::BufferVertexData()
+{
+	void* ptr = Context::s_Context->m_Device.mapMemory(m_HostVertexBuffer->m_Memory, 0, m_HostVertexBuffer->m_Size);
+	memcpy(ptr, vertices.data(), sizeof(vertices));
+	Context::s_Context->m_Device.unmapMemory(m_HostVertexBuffer->m_Memory);
+
+	auto cmdBuf = Context::s_Context->m_CommandManager->CreateCommandBuffer();
+	vk::CommandBufferBeginInfo begin;
+	begin.setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
+	cmdBuf.begin(begin);
+	vk::BufferCopy region;
+	region.setSize(m_HostVertexBuffer->m_Size)
+		.setSrcOffset(0)
+		.setDstOffset(0);
+	cmdBuf.copyBuffer(m_HostVertexBuffer->m_Buffer, m_DeviceVertexBuffer->m_Buffer, region);
+	cmdBuf.end();
+	vk::SubmitInfo submit;
+	submit.setCommandBuffers(cmdBuf);
+	Context::s_Context->m_GraphicsQueue.submit(submit);
+
+	Context::s_Context->m_Device.waitIdle();
+
+	Context::s_Context->m_CommandManager->FreeCommandBuffer(cmdBuf);
+
+	//TODO: 这里因为HostBuffer的数据已经传给了DeviceBuffer，所以HostBuffer可以删掉了
 }

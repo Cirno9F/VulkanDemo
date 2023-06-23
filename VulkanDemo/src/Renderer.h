@@ -33,6 +33,9 @@ private:
 
 	Scope<Buffer> m_HostVertexBuffer;
 	Scope<Buffer> m_DeviceVertexBuffer;
+	Scope<Buffer> m_HostIndexBuffer;
+	Scope<Buffer> m_DeviceIndexBuffer;
+
 	std::vector<Scope<Buffer>> m_HostUniformBuffer;
 	std::vector<Scope<Buffer>> m_DeviceUniformBuffer;
 	vk::DescriptorPool m_DescriptorPool;

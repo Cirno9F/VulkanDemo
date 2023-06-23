@@ -5,12 +5,15 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-static std::array<glm::vec2, 3> vertices =
+static std::array<glm::vec2, 4> vertices =
 {
-	glm::vec2{ 0.0f, -0.8f},
-	glm::vec2{ 0.5f,  0.8f},
-	glm::vec2{-0.5f,  0.8f},
+	glm::vec2{-0.5f, -0.5f},
+	glm::vec2{ 0.5f, -0.5f},
+	glm::vec2{ 0.5f,  0.5f},
+	glm::vec2{-0.5f,  0.5f},
 };
+
+static std::array<int, 6> indicies = { 0, 1, 2, 0, 2, 3 };
 
 static glm::vec3 color = { 0.8f,0.6f,0.2f };
 
@@ -30,7 +33,7 @@ Renderer::Renderer(uint32_t maxFlightCount) : m_MaxFlightCount(maxFlightCount) ,
 
 Renderer::~Renderer()
 {
-	m_HostVertexBuffer = nullptr;
+	m_DeviceIndexBuffer = nullptr;
 	m_DeviceVertexBuffer = nullptr;
 	for (uint32_t i = 0;i < m_MaxFlightCount;i++)
 	{
@@ -87,7 +90,8 @@ void Renderer::DrawTriangle()
 	vk::DeviceSize offset = 0;
 	m_CommandBuffers[m_CurFrame].bindDescriptorSets(vk::PipelineBindPoint::eGraphics, Context::s_Context->m_RenderProcess->m_PipelineLayout, 0, m_DescriptorSets[m_CurFrame], {});
 	m_CommandBuffers[m_CurFrame].bindVertexBuffers(0, m_DeviceVertexBuffer->m_Buffer, offset);
-	m_CommandBuffers[m_CurFrame].draw(3, 1, 0, 0);
+	m_CommandBuffers[m_CurFrame].bindIndexBuffer(m_DeviceIndexBuffer->m_Buffer, 0, vk::IndexType::eUint32);
+	m_CommandBuffers[m_CurFrame].drawIndexed(indicies.size(), 1, 0, 0, 0);
 	m_CommandBuffers[m_CurFrame].endRenderPass();
 	m_CommandBuffers[m_CurFrame].end();
 
@@ -152,17 +156,33 @@ void Renderer::CreateVertexBuffer()
 	m_DeviceVertexBuffer = CreateScope<Buffer>(sizeof(vertices),
 		vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst,
 		vk::MemoryPropertyFlagBits::eDeviceLocal);
+
+	//Index Buffer
+	m_HostIndexBuffer = CreateScope<Buffer>(sizeof(indicies),
+		vk::BufferUsageFlagBits::eTransferSrc,
+		vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
+	m_DeviceIndexBuffer = CreateScope<Buffer>(sizeof(indicies),
+		vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eTransferDst,
+		vk::MemoryPropertyFlagBits::eDeviceLocal);
 }
 
 void Renderer::BufferVertexData()
 {
+	//VertexBuffer
 	void* ptr = Context::s_Context->m_Device.mapMemory(m_HostVertexBuffer->m_Memory, 0, m_HostVertexBuffer->m_Size);
 	memcpy(ptr, vertices.data(), sizeof(vertices));
 	Context::s_Context->m_Device.unmapMemory(m_HostVertexBuffer->m_Memory);
-
-
 	CopyBuffer(m_HostVertexBuffer->m_Buffer, m_DeviceVertexBuffer->m_Buffer, m_HostVertexBuffer->m_Size, 0, 0);
-	//TODO: 这里因为HostBuffer的数据已经传给了DeviceBuffer，所以HostBuffer可以删掉了
+	//这里因为HostBuffer的数据已经传给了DeviceBuffer，所以HostBuffer可以删掉了
+	m_HostVertexBuffer = nullptr;
+
+	//IndexBuffer
+	ptr = Context::s_Context->m_Device.mapMemory(m_HostIndexBuffer->m_Memory, 0, m_HostIndexBuffer->m_Size);
+	memcpy(ptr, indicies.data(), sizeof(indicies));
+	Context::s_Context->m_Device.unmapMemory(m_HostIndexBuffer->m_Memory);
+	CopyBuffer(m_HostIndexBuffer->m_Buffer, m_DeviceIndexBuffer->m_Buffer, m_HostIndexBuffer->m_Size, 0, 0);
+	//这里因为HostBuffer的数据已经传给了DeviceBuffer，所以HostBuffer可以删掉了
+	m_HostIndexBuffer = nullptr;
 }
 
 void Renderer::CreateUniformBuffer()

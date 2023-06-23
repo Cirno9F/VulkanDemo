@@ -54,6 +54,7 @@ RenderProcess::RenderProcess(uint32_t width, uint32_t height)
 RenderProcess::~RenderProcess()
 {
 	auto& device = Context::s_Context->m_Device;
+	device.destroyDescriptorSetLayout(m_SetLayout);
 	device.destroyRenderPass(m_RenderPass);
 	device.destroyPipelineLayout(m_PipelineLayout);
 	device.destroyPipeline(m_Pipeline);

@@ -3,6 +3,7 @@
 #include "SwapChain.h"
 
 #include <glm/glm.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 static std::array<glm::vec2, 3> vertices =
 {
@@ -11,6 +12,8 @@ static std::array<glm::vec2, 3> vertices =
 	glm::vec2{-0.5f,  0.8f},
 };
 
+static glm::vec3 color = { 0.8f,0.6f,0.2f };
+
 Renderer::Renderer(uint32_t maxFlightCount) : m_MaxFlightCount(maxFlightCount) , m_CurFrame(0)
 {
 	CreateCommandBuffers();
@@ -18,15 +21,27 @@ Renderer::Renderer(uint32_t maxFlightCount) : m_MaxFlightCount(maxFlightCount) ,
 	CreateFences();
 	CreateVertexBuffer();
 	BufferVertexData();
+	CreateUniformBuffer();
+	BufferUniformData();
+	CreateDescriptorPool();
+	AllocateSets();
+	UpdateSets();
 }
 
 Renderer::~Renderer()
 {
 	m_HostVertexBuffer = nullptr;
 	m_DeviceVertexBuffer = nullptr;
+	for (uint32_t i = 0;i < m_MaxFlightCount;i++)
+	{
+		m_HostUniformBuffer[i] = nullptr;
+		m_DeviceUniformBuffer[i] = nullptr;
+	}
 
 	auto& device = Context::s_Context->m_Device;
 	auto& cmdMgr = Context::s_Context->m_CommandManager;
+
+	device.destroyDescriptorPool(m_DescriptorPool);
 	
 	for (uint32_t i = 0;i < m_MaxFlightCount;i++)
 	{
@@ -70,6 +85,7 @@ void Renderer::DrawTriangle()
 	m_CommandBuffers[m_CurFrame].beginRenderPass(rpBeginInfo, {});
 	m_CommandBuffers[m_CurFrame].bindPipeline(vk::PipelineBindPoint::eGraphics, Context::s_Context->m_RenderProcess->m_Pipeline);
 	vk::DeviceSize offset = 0;
+	m_CommandBuffers[m_CurFrame].bindDescriptorSets(vk::PipelineBindPoint::eGraphics, Context::s_Context->m_RenderProcess->m_PipelineLayout, 0, m_DescriptorSets[m_CurFrame], {});
 	m_CommandBuffers[m_CurFrame].bindVertexBuffers(0, m_DeviceVertexBuffer->m_Buffer, offset);
 	m_CommandBuffers[m_CurFrame].draw(3, 1, 0, 0);
 	m_CommandBuffers[m_CurFrame].endRenderPass();
@@ -144,15 +160,99 @@ void Renderer::BufferVertexData()
 	memcpy(ptr, vertices.data(), sizeof(vertices));
 	Context::s_Context->m_Device.unmapMemory(m_HostVertexBuffer->m_Memory);
 
+
+	CopyBuffer(m_HostVertexBuffer->m_Buffer, m_DeviceVertexBuffer->m_Buffer, m_HostVertexBuffer->m_Size, 0, 0);
+	//TODO: 这里因为HostBuffer的数据已经传给了DeviceBuffer，所以HostBuffer可以删掉了
+}
+
+void Renderer::CreateUniformBuffer()
+{
+	m_HostUniformBuffer.resize(m_MaxFlightCount);
+	m_DeviceUniformBuffer.resize(m_MaxFlightCount);
+	for (auto& buffer : m_HostUniformBuffer)
+	{
+		buffer = CreateScope<Buffer>(sizeof(color),
+			vk::BufferUsageFlagBits::eTransferSrc,
+			vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
+	}
+	for (auto& buffer : m_DeviceUniformBuffer)
+	{
+		buffer = CreateScope<Buffer>(sizeof(color),
+			vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eUniformBuffer,
+			vk::MemoryPropertyFlagBits::eDeviceLocal);
+	}
+}
+
+void Renderer::BufferUniformData()
+{
+	for (int i = 0;i < m_HostUniformBuffer.size();i++)
+	{
+		auto& hostBuffer = m_HostUniformBuffer[i];
+		auto& deviceBuffer = m_DeviceUniformBuffer[i];
+		void* ptr = Context::s_Context->m_Device.mapMemory(hostBuffer->m_Memory, 0, hostBuffer->m_Size);
+		memcpy(ptr, glm::value_ptr(color), sizeof(color));
+		Context::s_Context->m_Device.unmapMemory(hostBuffer->m_Memory);
+
+		CopyBuffer(hostBuffer->m_Buffer, deviceBuffer->m_Buffer, hostBuffer->m_Size, 0, 0);
+	}
+
+}
+
+void Renderer::CreateDescriptorPool()
+{
+	vk::DescriptorPoolCreateInfo createInfo;
+	vk::DescriptorPoolSize poolSize;
+	poolSize.setType(vk::DescriptorType::eUniformBuffer)
+		.setDescriptorCount(m_MaxFlightCount);
+	createInfo.setMaxSets(m_MaxFlightCount)
+		.setPoolSizes(poolSize);
+	m_DescriptorPool = Context::s_Context->m_Device.createDescriptorPool(createInfo);
+}
+
+void Renderer::AllocateSets()
+{
+	std::vector<vk::DescriptorSetLayout> layouts(m_MaxFlightCount, Context::s_Context->m_RenderProcess->m_SetLayout);
+	vk::DescriptorSetAllocateInfo allocInfo;
+	allocInfo.setDescriptorPool(m_DescriptorPool)
+		.setDescriptorSetCount(m_MaxFlightCount)
+		.setSetLayouts(layouts);
+
+	m_DescriptorSets = Context::s_Context->m_Device.allocateDescriptorSets(allocInfo);
+}
+
+void Renderer::UpdateSets()
+{
+	for (int i = 0;i < m_DescriptorSets.size();i++)
+	{
+		auto set = m_DescriptorSets[i];
+
+		vk::DescriptorBufferInfo bufferInfo;
+		bufferInfo.setBuffer(m_DeviceUniformBuffer[i]->m_Buffer)
+			.setOffset(0)
+			.setRange(m_DeviceUniformBuffer[i]->m_Size);
+
+		vk::WriteDescriptorSet writer;
+		writer.setDescriptorType(vk::DescriptorType::eUniformBuffer)
+			.setBufferInfo(bufferInfo)
+			.setDstBinding(0)
+			.setDstSet(set)
+			.setDstArrayElement(0)
+			.setDescriptorCount(1);
+		Context::s_Context->m_Device.updateDescriptorSets(writer, {});
+	}
+}
+
+void Renderer::CopyBuffer(vk::Buffer& src, vk::Buffer& dst, uint32_t size, uint32_t srcOffset, uint32_t dstOffset)
+{
 	auto cmdBuf = Context::s_Context->m_CommandManager->CreateCommandBuffer();
 	vk::CommandBufferBeginInfo begin;
 	begin.setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
 	cmdBuf.begin(begin);
 	vk::BufferCopy region;
-	region.setSize(m_HostVertexBuffer->m_Size)
-		.setSrcOffset(0)
-		.setDstOffset(0);
-	cmdBuf.copyBuffer(m_HostVertexBuffer->m_Buffer, m_DeviceVertexBuffer->m_Buffer, region);
+	region.setSize(size)
+		.setSrcOffset(srcOffset)
+		.setDstOffset(dstOffset);
+	cmdBuf.copyBuffer(src, dst, region);
 	cmdBuf.end();
 	vk::SubmitInfo submit;
 	submit.setCommandBuffers(cmdBuf);
@@ -161,6 +261,4 @@ void Renderer::BufferVertexData()
 	Context::s_Context->m_Device.waitIdle();
 
 	Context::s_Context->m_CommandManager->FreeCommandBuffer(cmdBuf);
-
-	//TODO: 这里因为HostBuffer的数据已经传给了DeviceBuffer，所以HostBuffer可以删掉了
 }

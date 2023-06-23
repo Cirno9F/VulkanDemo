@@ -18,6 +18,13 @@ private:
 	void CreateFences();
 	void CreateVertexBuffer();
 	void BufferVertexData();
+	void CreateUniformBuffer();
+	void BufferUniformData();
+	void CreateDescriptorPool();
+	void AllocateSets();
+	void UpdateSets();
+
+	void CopyBuffer(vk::Buffer& src, vk::Buffer& dst, uint32_t size, uint32_t srcOffset, uint32_t dstOffset);
 private:
     std::vector<vk::CommandBuffer> m_CommandBuffers;
 	std::vector<vk::Semaphore> m_SemaphoreImageAvaliables;
@@ -26,6 +33,10 @@ private:
 
 	Scope<Buffer> m_HostVertexBuffer;
 	Scope<Buffer> m_DeviceVertexBuffer;
+	std::vector<Scope<Buffer>> m_HostUniformBuffer;
+	std::vector<Scope<Buffer>> m_DeviceUniformBuffer;
+	vk::DescriptorPool m_DescriptorPool;
+	std::vector<vk::DescriptorSet> m_DescriptorSets;
 
 	uint32_t m_MaxFlightCount;
 	uint32_t m_CurFrame;

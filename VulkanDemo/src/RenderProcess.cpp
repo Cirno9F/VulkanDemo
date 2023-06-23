@@ -27,6 +27,19 @@ static vk::VertexInputBindingDescription GetBinding()
 	return binding;
 }
 
+static vk::DescriptorSetLayoutBinding GetUBOBinding()
+{
+	vk::DescriptorSetLayoutBinding binding;
+	binding.setBinding(0)
+		.setDescriptorType(vk::DescriptorType::eUniformBuffer)
+		.setStageFlags(vk::ShaderStageFlagBits::eFragment)
+		.setDescriptorCount(1);
+	return binding;
+}
+
+
+
+
 RenderProcess::RenderProcess()
 {
 }
@@ -48,7 +61,10 @@ RenderProcess::~RenderProcess()
 
 void RenderProcess::InitLayout()
 {
+	//定义uniform变量的布局
 	vk::PipelineLayoutCreateInfo createInfo;
+	m_SetLayout = CreateSetLayout();
+	createInfo.setSetLayouts(m_SetLayout);
 	m_PipelineLayout = Context::s_Context->m_Device.createPipelineLayout(createInfo);
 }
 
@@ -152,4 +168,12 @@ void RenderProcess::InitPipeline(uint32_t width, uint32_t height)
 	ASSERT_IFNOT(result.result == vk::Result::eSuccess, "Create graphics pipeline failed!");
 	m_Pipeline = result.value;
 
+}
+
+vk::DescriptorSetLayout RenderProcess::CreateSetLayout()
+{
+	vk::DescriptorSetLayoutCreateInfo createInfo;
+	auto binding = GetUBOBinding();
+	createInfo.setBindings(binding);
+	return Context::s_Context->m_Device.createDescriptorSetLayout(createInfo);
 }

@@ -2,7 +2,7 @@
 #include "Context.h"
 
 Buffer::Buffer(size_t size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags property)
-	:m_Size(size)
+	:m_Size(size), m_Map(nullptr)
 {
 	CreateBuffer(size, usage);
 	auto info = QueryMemoryInfo(m_Buffer, property);
@@ -12,6 +12,11 @@ Buffer::Buffer(size_t size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags 
 
 Buffer::~Buffer()
 {
+	if (m_Map)
+	{
+		Context::s_Context->m_Device.unmapMemory(m_Memory);
+		m_Map = nullptr;
+	}
 	Context::s_Context->m_Device.destroyBuffer(m_Buffer);
 	Context::s_Context->m_Device.freeMemory(m_Memory);
 }

@@ -19,6 +19,10 @@ static glm::vec3 color = { 0.8f,0.6f,0.2f };
 
 Renderer::Renderer(uint32_t maxFlightCount) : m_MaxFlightCount(maxFlightCount) , m_CurFrame(0)
 {
+	m_MVP.model = glm::mat4(1.0f);
+	m_MVP.view = glm::mat4(1.0f);
+	m_MVP.proj = glm::mat4(1.0f);
+
 	CreateCommandBuffers();
 	CreateSemaphores();
 	CreateFences();
@@ -57,6 +61,8 @@ Renderer::~Renderer()
 
 void Renderer::DrawTriangle()
 {
+	UpdateMVP();
+
 	auto& device = Context::s_Context->m_Device;
 	auto& renderProcess = Context::s_Context->m_RenderProcess;
 	auto& swapChain = Context::s_Context->m_SwapChain;
@@ -201,6 +207,15 @@ void Renderer::CreateUniformBuffer()
 			vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eUniformBuffer,
 			vk::MemoryPropertyFlagBits::eDeviceLocal);
 	}
+
+
+	m_HostMVPBuffer.resize(m_MaxFlightCount);
+	for (auto& buffer : m_HostMVPBuffer)
+	{
+		buffer = CreateScope<Buffer>(sizeof(m_MVP),
+			vk::BufferUsageFlagBits::eUniformBuffer,
+			vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
+	}
 }
 
 void Renderer::BufferUniformData()
@@ -216,6 +231,14 @@ void Renderer::BufferUniformData()
 		CopyBuffer(hostBuffer->m_Buffer, deviceBuffer->m_Buffer, hostBuffer->m_Size, 0, 0);
 	}
 
+
+
+	for (int i = 0;i < m_HostMVPBuffer.size();i++)
+	{
+		auto& hostBuffer = m_HostMVPBuffer[i];
+		hostBuffer->m_Map = Context::s_Context->m_Device.mapMemory(hostBuffer->m_Memory, 0, hostBuffer->m_Size);
+		memcpy(hostBuffer->m_Map, &m_MVP, sizeof(m_MVP));
+	}
 }
 
 void Renderer::CreateDescriptorPool()
@@ -246,20 +269,41 @@ void Renderer::UpdateSets()
 	{
 		auto set = m_DescriptorSets[i];
 
-		vk::DescriptorBufferInfo bufferInfo;
-		bufferInfo.setBuffer(m_DeviceUniformBuffer[i]->m_Buffer)
+		std::array<vk::DescriptorBufferInfo, 2> bufferInfo;
+		bufferInfo[0].setBuffer(m_DeviceUniformBuffer[i]->m_Buffer)
 			.setOffset(0)
 			.setRange(m_DeviceUniformBuffer[i]->m_Size);
+		bufferInfo[1].setBuffer(m_HostMVPBuffer[i]->m_Buffer)
+			.setOffset(0)
+			.setRange(m_HostMVPBuffer[i]->m_Size);
 
-		vk::WriteDescriptorSet writer;
-		writer.setDescriptorType(vk::DescriptorType::eUniformBuffer)
-			.setBufferInfo(bufferInfo)
+		std::array<vk::WriteDescriptorSet, 2> writer;
+		writer[0].setDescriptorType(vk::DescriptorType::eUniformBuffer)
+			.setBufferInfo(bufferInfo[0])
 			.setDstBinding(0)
+			.setDstSet(set)
+			.setDstArrayElement(0)
+			.setDescriptorCount(1);
+		writer[1].setDescriptorType(vk::DescriptorType::eUniformBuffer)
+			.setBufferInfo(bufferInfo[1])
+			.setDstBinding(1)
 			.setDstSet(set)
 			.setDstArrayElement(0)
 			.setDescriptorCount(1);
 		Context::s_Context->m_Device.updateDescriptorSets(writer, {});
 	}
+}
+
+void Renderer::UpdateMVP()
+{
+	auto swapChainExtent = Context::s_Context->m_SwapChain->m_SwapChainInfo.ImageExtent;
+
+	m_MVP.model = glm::rotate(glm::mat4(1.0f), glm::radians(45.0f), glm::vec3(0.0f, 0.0f, 1.0f)) * glm::scale(glm::mat4(1.0f), {1.0f, 4.0f, 1.0f});
+	m_MVP.view = glm::translate(glm::mat4(1.0f), { 0.0, 0.0f, -10.0f });
+	m_MVP.proj  = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 10.0f);
+	m_MVP.proj[1][1] *= -1;
+
+	memcpy(m_HostMVPBuffer[m_CurFrame]->m_Map, &m_MVP, sizeof(m_MVP));
 }
 
 void Renderer::CopyBuffer(vk::Buffer& src, vk::Buffer& dst, uint32_t size, uint32_t srcOffset, uint32_t dstOffset)

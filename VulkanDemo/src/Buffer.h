@@ -10,6 +10,7 @@ public:
 public:
 	vk::Buffer m_Buffer;
 	vk::DeviceMemory m_Memory;
+	void* m_Map;
 	size_t m_Size;
 private:
 	struct MemoryInfo final

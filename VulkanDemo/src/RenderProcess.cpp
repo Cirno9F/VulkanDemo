@@ -27,18 +27,6 @@ static vk::VertexInputBindingDescription GetBinding()
 	return binding;
 }
 
-static vk::DescriptorSetLayoutBinding GetUBOBinding()
-{
-	vk::DescriptorSetLayoutBinding binding;
-	binding.setBinding(0)
-		.setDescriptorType(vk::DescriptorType::eUniformBuffer)
-		.setStageFlags(vk::ShaderStageFlagBits::eFragment)
-		.setDescriptorCount(1);
-	return binding;
-}
-
-
-
 
 RenderProcess::RenderProcess()
 {
@@ -135,7 +123,7 @@ void RenderProcess::InitPipeline(uint32_t width, uint32_t height)
 	vk::PipelineRasterizationStateCreateInfo rasterizationInfo;
 	rasterizationInfo.setRasterizerDiscardEnable(false)
 		.setCullMode(vk::CullModeFlagBits::eBack)
-		.setFrontFace(vk::FrontFace::eClockwise)
+		.setFrontFace(vk::FrontFace::eCounterClockwise)
 		.setPolygonMode(vk::PolygonMode::eFill)
 		.setLineWidth(1);
 	createInfo.setPRasterizationState(&rasterizationInfo);
@@ -174,7 +162,15 @@ void RenderProcess::InitPipeline(uint32_t width, uint32_t height)
 vk::DescriptorSetLayout RenderProcess::CreateSetLayout()
 {
 	vk::DescriptorSetLayoutCreateInfo createInfo;
-	auto binding = GetUBOBinding();
-	createInfo.setBindings(binding);
+	std::array<vk::DescriptorSetLayoutBinding, 2> bindings;
+	bindings[0].setBinding(0)
+		.setDescriptorType(vk::DescriptorType::eUniformBuffer)
+		.setStageFlags(vk::ShaderStageFlagBits::eFragment)
+		.setDescriptorCount(1);
+	bindings[1].setBinding(1)
+		.setDescriptorType(vk::DescriptorType::eUniformBuffer)
+		.setStageFlags(vk::ShaderStageFlagBits::eVertex)
+		.setDescriptorCount(1);
+	createInfo.setBindings(bindings);
 	return Context::s_Context->m_Device.createDescriptorSetLayout(createInfo);
 }

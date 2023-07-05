@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Base.h"
-#include "Shader.h"
+#include "Render/Context.h"
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>

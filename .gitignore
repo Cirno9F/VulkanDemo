@@ -4,3 +4,4 @@
 /*.sln
 /VulkanDemo/*.vcxproj
 /VulkanDemo/*.user
+/VulkanDemo/VulkanDemo.vcxproj.filters

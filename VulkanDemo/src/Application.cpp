@@ -1,5 +1,4 @@
 #include "Application.h"
-#include "Context.h"
 
 Application::Application(const std::string& name, uint32_t width, uint32_t height)
 	:m_Name(name), m_Width(width), m_Height(height)

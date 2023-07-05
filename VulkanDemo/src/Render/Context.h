@@ -1,11 +1,13 @@
 #pragma once
 
-#include "Base.h"
+#include "../Utils.h"
+#include "../Base.h"
 #include "SwapChain.h"
 #include "RenderProcess.h"
 #include "Shader.h"
 #include "Renderer.h"
 #include "CommandManager.h"
+#include "DescriptorManager.h"
 
 #include <vulkan/vulkan.hpp>
 #include <memory>
@@ -42,6 +44,7 @@ public:
 	Scope<RenderProcess> m_RenderProcess;
 	Scope<Renderer> m_Renderer;
 	Scope<CommandManager> m_CommandManager;
+	Scope<DescriptorManager> m_DescriptorManager;
 	QueueFamilyIndices m_QueueFamilyIndices;
 private:
 	Context(const std::vector<const char*>& requiredExtensions, CreateSurfaceFunc createSurfaceFunc);

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../Utils.h"
 #include <vulkan/vulkan.hpp>
 
 class Buffer
@@ -13,14 +14,7 @@ public:
 	void* m_Map;
 	size_t m_Size;
 private:
-	struct MemoryInfo final
-	{
-		size_t size;
-		uint32_t index;
-	};
-
 	void CreateBuffer(size_t size, vk::BufferUsageFlags usage);
-	void AllocateMemory(MemoryInfo info);
+	void AllocateMemory(uint32_t memoryTypeIndex, uint32_t size);
 	void BindingMemoryToBuffer();
-	MemoryInfo QueryMemoryInfo(vk::Buffer buffer, vk::MemoryPropertyFlags property);
 };

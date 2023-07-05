@@ -29,6 +29,24 @@ void CommandManager::FreeCommandBuffer(const vk::CommandBuffer& buffer)
 	device.freeCommandBuffers(m_CommandPool, buffer);
 }
 
+void CommandManager::ExcuteCommand(vk::Queue queue, RecordCmdFunc func)
+{
+	auto cmdBuf = CreateCommandBuffer();
+
+	vk::CommandBufferBeginInfo beginInfo;
+	beginInfo.setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
+	cmdBuf.begin(beginInfo);
+	if (func) func(cmdBuf);
+	cmdBuf.end();
+
+	vk::SubmitInfo submitInfo;
+	submitInfo.setCommandBuffers(cmdBuf);
+	queue.submit(submitInfo);
+	queue.waitIdle();
+	Context::s_Context->m_Device.waitIdle();
+	FreeCommandBuffer(cmdBuf);
+}
+
 vk::CommandBuffer CommandManager::CreateCommandBuffer()
 {
 	return CreateCommandBuffers(1)[0];

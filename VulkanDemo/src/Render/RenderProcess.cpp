@@ -1,18 +1,27 @@
 #include "RenderProcess.h"
-#include "Application.h"
+#include "../Application.h"
 #include "Context.h"
 #include "SwapChain.h"
 
 #include <glm/glm.hpp>
 
 //TODO: 之后挪个地方
-static vk::VertexInputAttributeDescription GetAttribute()
+static std::vector<vk::VertexInputAttributeDescription> GetAttribute()
 {
-	vk::VertexInputAttributeDescription attribute;
-	attribute.setBinding(0)
-		.setFormat(vk::Format::eR32G32Sfloat)
+	std::vector<vk::VertexInputAttributeDescription> attribute;
+	attribute.resize(3);
+	attribute[0].setBinding(0)
+		.setFormat(vk::Format::eR32G32B32Sfloat)
 		.setLocation(0)
 		.setOffset(0);
+	attribute[1].setBinding(0)
+		.setFormat(vk::Format::eR32G32Sfloat)
+		.setLocation(1)
+		.setOffset(offsetof(VertexInput, TexCoord));
+	attribute[2].setBinding(0)
+		.setFormat(vk::Format::eR32G32B32Sfloat)
+		.setLocation(2)
+		.setOffset(offsetof(VertexInput, Color));
 	return attribute;
 }
 
@@ -22,7 +31,7 @@ static vk::VertexInputBindingDescription GetBinding()
 
 	binding.setBinding(0)
 		.setInputRate(vk::VertexInputRate::eVertex)
-		.setStride(sizeof(glm::vec2));
+		.setStride(sizeof(VertexInput));
 
 	return binding;
 }
@@ -42,7 +51,8 @@ RenderProcess::RenderProcess(uint32_t width, uint32_t height)
 RenderProcess::~RenderProcess()
 {
 	auto& device = Context::s_Context->m_Device;
-	device.destroyDescriptorSetLayout(m_SetLayout);
+	for(auto& layout : m_SetLayout)
+		device.destroyDescriptorSetLayout(layout);
 	device.destroyRenderPass(m_RenderPass);
 	device.destroyPipelineLayout(m_PipelineLayout);
 	device.destroyPipeline(m_Pipeline);
@@ -159,8 +169,11 @@ void RenderProcess::InitPipeline(uint32_t width, uint32_t height)
 
 }
 
-vk::DescriptorSetLayout RenderProcess::CreateSetLayout()
+std::vector<vk::DescriptorSetLayout> RenderProcess::CreateSetLayout()
 {
+	std::vector<vk::DescriptorSetLayout> layouts;
+	layouts.resize(2);
+
 	vk::DescriptorSetLayoutCreateInfo createInfo;
 	std::array<vk::DescriptorSetLayoutBinding, 2> bindings;
 	bindings[0].setBinding(0)
@@ -172,5 +185,15 @@ vk::DescriptorSetLayout RenderProcess::CreateSetLayout()
 		.setStageFlags(vk::ShaderStageFlagBits::eVertex)
 		.setDescriptorCount(1);
 	createInfo.setBindings(bindings);
-	return Context::s_Context->m_Device.createDescriptorSetLayout(createInfo);
+	layouts[0] = Context::s_Context->m_Device.createDescriptorSetLayout(createInfo);
+
+
+	vk::DescriptorSetLayoutBinding binding;
+	binding.setBinding(0)
+		.setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+		.setStageFlags(vk::ShaderStageFlagBits::eFragment)
+		.setDescriptorCount(1);
+	createInfo.setBindings(binding);
+	layouts[1] = Context::s_Context->m_Device.createDescriptorSetLayout(createInfo);
+	return layouts;
 }

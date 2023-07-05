@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vulkan/vulkan.hpp>
+#include <functional>
 
 class CommandManager
 {
@@ -9,6 +10,9 @@ public:
 	~CommandManager();
 	void ResetCommandBuffers();
 	void FreeCommandBuffer(const vk::CommandBuffer& buffer);
+
+	using RecordCmdFunc = std::function<void(vk::CommandBuffer&)>;
+	void ExcuteCommand(vk::Queue queue, RecordCmdFunc func);
 public:
 	vk::CommandBuffer CreateCommandBuffer();
 	std::vector<vk::CommandBuffer> CreateCommandBuffers(std::uint32_t count);

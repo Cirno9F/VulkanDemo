@@ -1,7 +1,8 @@
 #pragma once
 
-#include "Base.h"
+#include "Texture.h"
 #include "Buffer.h"
+#include "../Base.h"
 
 #include <vulkan/vulkan.hpp>
 #include <vector>
@@ -27,7 +28,6 @@ private:
 	void BufferVertexData();
 	void CreateUniformBuffer();
 	void BufferUniformData();
-	void CreateDescriptorPool();
 	void AllocateSets();
 	void UpdateSets();
 
@@ -48,11 +48,12 @@ private:
 	std::vector<Scope<Buffer>> m_HostUniformBuffer;
 	std::vector<Scope<Buffer>> m_DeviceUniformBuffer;
 	std::vector<Scope<Buffer>> m_HostMVPBuffer;
-	vk::DescriptorPool m_DescriptorPool;
 	std::vector<vk::DescriptorSet> m_DescriptorSets;
 
 	uint32_t m_MaxFlightCount;
 	uint32_t m_CurFrame;
 
 	ModelViewProj m_MVP;
+
+	Scope<Texture> m_DefaultTexture;
 };

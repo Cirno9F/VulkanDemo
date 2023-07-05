@@ -1,16 +1,17 @@
 #include "Renderer.h"
 #include "Context.h"
 #include "SwapChain.h"
+#include "RenderProcess.h"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-static std::array<glm::vec2, 4> vertices =
+static std::array<VertexInput, 4> vertices =
 {
-	glm::vec2{-0.5f, -0.5f},
-	glm::vec2{ 0.5f, -0.5f},
-	glm::vec2{ 0.5f,  0.5f},
-	glm::vec2{-0.5f,  0.5f},
+	VertexInput{glm::vec3{-0.5f, -0.5f, 0.0f}, glm::vec2{0.0f, 0.0f}, glm::vec3{0.0f, 0.0f, 0.0f}},
+	VertexInput{glm::vec3{ 0.5f, -0.5f, 0.0f}, glm::vec2{1.0f, 0.0f}, glm::vec3{1.0f, 1.0f, 1.0f}},
+	VertexInput{glm::vec3{ 0.5f,  0.5f, 0.0f}, glm::vec2{1.0f, 1.0f}, glm::vec3{1.0f, 1.0f, 1.0f}},
+	VertexInput{glm::vec3{-0.5f,  0.5f, 0.0f}, glm::vec2{0.0f, 1.0f}, glm::vec3{1.0f, 1.0f, 1.0f}},
 };
 
 static std::array<int, 6> indicies = { 0, 1, 2, 0, 2, 3 };
@@ -30,13 +31,16 @@ Renderer::Renderer(uint32_t maxFlightCount) : m_MaxFlightCount(maxFlightCount) ,
 	BufferVertexData();
 	CreateUniformBuffer();
 	BufferUniformData();
-	CreateDescriptorPool();
 	AllocateSets();
 	UpdateSets();
+
+	m_DefaultTexture = CreateScope<Texture>("assets/texture/avatar.jpg");
 }
 
 Renderer::~Renderer()
 {
+	m_DefaultTexture = nullptr;
+
 	m_DeviceIndexBuffer = nullptr;
 	m_DeviceVertexBuffer = nullptr;
 	for (uint32_t i = 0;i < m_MaxFlightCount;i++)
@@ -47,8 +51,6 @@ Renderer::~Renderer()
 
 	auto& device = Context::s_Context->m_Device;
 	auto& cmdMgr = Context::s_Context->m_CommandManager;
-
-	device.destroyDescriptorPool(m_DescriptorPool);
 	
 	for (uint32_t i = 0;i < m_MaxFlightCount;i++)
 	{
@@ -94,7 +96,7 @@ void Renderer::DrawTriangle()
 	m_CommandBuffers[m_CurFrame].beginRenderPass(rpBeginInfo, {});
 	m_CommandBuffers[m_CurFrame].bindPipeline(vk::PipelineBindPoint::eGraphics, Context::s_Context->m_RenderProcess->m_Pipeline);
 	vk::DeviceSize offset = 0;
-	m_CommandBuffers[m_CurFrame].bindDescriptorSets(vk::PipelineBindPoint::eGraphics, Context::s_Context->m_RenderProcess->m_PipelineLayout, 0, m_DescriptorSets[m_CurFrame], {});
+	m_CommandBuffers[m_CurFrame].bindDescriptorSets(vk::PipelineBindPoint::eGraphics, Context::s_Context->m_RenderProcess->m_PipelineLayout, 0, { m_DescriptorSets[m_CurFrame], m_DefaultTexture->GetDescriptorSet() }, {});
 	m_CommandBuffers[m_CurFrame].bindVertexBuffers(0, m_DeviceVertexBuffer->m_Buffer, offset);
 	m_CommandBuffers[m_CurFrame].bindIndexBuffer(m_DeviceIndexBuffer->m_Buffer, 0, vk::IndexType::eUint32);
 	m_CommandBuffers[m_CurFrame].drawIndexed(indicies.size(), 1, 0, 0, 0);
@@ -154,12 +156,12 @@ void Renderer::CreateFences()
 void Renderer::CreateVertexBuffer()
 {
 	//CPU本地存储的vertex buffer， 用来传输数据
-	m_HostVertexBuffer = CreateScope<Buffer>(sizeof(vertices),
+	m_HostVertexBuffer = CreateScope<Buffer>(sizeof(VertexInput) * vertices.size(),
 		vk::BufferUsageFlagBits::eTransferSrc,
 		vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
 
 	//GPU存储的vertex buffer
-	m_DeviceVertexBuffer = CreateScope<Buffer>(sizeof(vertices),
+	m_DeviceVertexBuffer = CreateScope<Buffer>(sizeof(VertexInput) * vertices.size(),
 		vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst,
 		vk::MemoryPropertyFlagBits::eDeviceLocal);
 
@@ -241,26 +243,9 @@ void Renderer::BufferUniformData()
 	}
 }
 
-void Renderer::CreateDescriptorPool()
-{
-	vk::DescriptorPoolCreateInfo createInfo;
-	vk::DescriptorPoolSize poolSize;
-	poolSize.setType(vk::DescriptorType::eUniformBuffer)
-		.setDescriptorCount(m_MaxFlightCount);
-	createInfo.setMaxSets(m_MaxFlightCount)
-		.setPoolSizes(poolSize);
-	m_DescriptorPool = Context::s_Context->m_Device.createDescriptorPool(createInfo);
-}
-
 void Renderer::AllocateSets()
 {
-	std::vector<vk::DescriptorSetLayout> layouts(m_MaxFlightCount, Context::s_Context->m_RenderProcess->m_SetLayout);
-	vk::DescriptorSetAllocateInfo allocInfo;
-	allocInfo.setDescriptorPool(m_DescriptorPool)
-		.setDescriptorSetCount(m_MaxFlightCount)
-		.setSetLayouts(layouts);
-
-	m_DescriptorSets = Context::s_Context->m_Device.allocateDescriptorSets(allocInfo);
+	m_DescriptorSets = Context::s_Context->m_DescriptorManager->AllocateUniformSets();
 }
 
 void Renderer::UpdateSets()
@@ -298,7 +283,7 @@ void Renderer::UpdateMVP()
 {
 	auto swapChainExtent = Context::s_Context->m_SwapChain->m_SwapChainInfo.ImageExtent;
 
-	m_MVP.model = glm::rotate(glm::mat4(1.0f), glm::radians(45.0f), glm::vec3(0.0f, 0.0f, 1.0f)) * glm::scale(glm::mat4(1.0f), {1.0f, 4.0f, 1.0f});
+	m_MVP.model = glm::rotate(glm::mat4(1.0f), glm::radians(0.0f), glm::vec3(0.0f, 0.0f, 1.0f)) * glm::scale(glm::mat4(1.0f), {3.0f, 3.0f, 3.0f});
 	m_MVP.view = glm::translate(glm::mat4(1.0f), { 0.0, 0.0f, -10.0f });
 	m_MVP.proj  = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 10.0f);
 	m_MVP.proj[1][1] *= -1;

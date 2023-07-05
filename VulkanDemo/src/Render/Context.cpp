@@ -1,5 +1,4 @@
 #include "Context.h"
-#include "Utils.h"
 
 Context* Context::s_Context = nullptr;
 Ref<Shader> Context::s_TestShader = nullptr;
@@ -10,7 +9,7 @@ void Context::Init(uint32_t width, uint32_t height, const std::vector<const char
 	s_Context = new Context(requiredExtensions, createSurfaceFunc);
 
 	//shader
-	s_TestShader = Shader::Create(ReadFile("assets/shader/vert.spv"), ReadFile("assets/shader/frag.spv"));
+	s_TestShader = Shader::Create(Utils::ReadFile("assets/shader/vert.spv"), Utils::ReadFile("assets/shader/frag.spv"));
 
 	s_Context->m_SwapChain = CreateScope<SwapChain>(width, height);
 	s_Context->m_RenderProcess = CreateScope<RenderProcess>();
@@ -19,7 +18,9 @@ void Context::Init(uint32_t width, uint32_t height, const std::vector<const char
 	s_Context->m_SwapChain->CreateFrameBuffers(width, height);
 	s_Context->m_RenderProcess->InitPipeline(width,height);
 	s_Context->m_CommandManager = CreateScope<CommandManager>();
-	s_Context->m_Renderer = CreateScope<Renderer>();
+	int maxFlightCount = 2;
+	s_Context->m_DescriptorManager = CreateScope<DescriptorManager>(maxFlightCount);
+	s_Context->m_Renderer = CreateScope<Renderer>(maxFlightCount);
 }
 
 void Context::Close()
@@ -28,6 +29,7 @@ void Context::Close()
 
 	s_Context->m_Renderer = nullptr;
 	s_Context->m_CommandManager = nullptr;
+	s_Context->m_DescriptorManager = nullptr;
 
 	//shader
 	s_TestShader = nullptr;

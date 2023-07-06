@@ -6,15 +6,21 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-static std::array<VertexInput, 4> vertices =
+static std::array<VertexInput, 8> vertices =
 {
 	VertexInput{glm::vec3{-0.5f, -0.5f, 0.0f}, glm::vec2{0.0f, 0.0f}, glm::vec3{0.0f, 0.0f, 0.0f}},
 	VertexInput{glm::vec3{ 0.5f, -0.5f, 0.0f}, glm::vec2{1.0f, 0.0f}, glm::vec3{1.0f, 1.0f, 1.0f}},
 	VertexInput{glm::vec3{ 0.5f,  0.5f, 0.0f}, glm::vec2{1.0f, 1.0f}, glm::vec3{1.0f, 1.0f, 1.0f}},
 	VertexInput{glm::vec3{-0.5f,  0.5f, 0.0f}, glm::vec2{0.0f, 1.0f}, glm::vec3{1.0f, 1.0f, 1.0f}},
+
+
+	VertexInput{glm::vec3{-0.2f, -0.2f, 1.0f}, glm::vec2{0.0f, 0.0f}, glm::vec3{1.0f, 1.0f, 1.0f}},
+	VertexInput{glm::vec3{ 0.2f, -0.2f, 1.0f}, glm::vec2{1.0f, 0.0f}, glm::vec3{1.0f, 1.0f, 1.0f}},
+	VertexInput{glm::vec3{ 0.2f,  0.2f, 1.0f}, glm::vec2{1.0f, 1.0f}, glm::vec3{1.0f, 1.0f, 1.0f}},
+	VertexInput{glm::vec3{-0.2f,  0.2f, 1.0f}, glm::vec2{0.0f, 1.0f}, glm::vec3{1.0f, 1.0f, 1.0f}},
 };
 
-static std::array<int, 6> indicies = { 0, 1, 2, 0, 2, 3 };
+static std::array<int, 12> indicies = { 0, 1, 2, 0, 2, 3 , 4, 5, 6, 4, 6, 7};
 
 static glm::vec3 color = { 0.8f,0.6f,0.2f };
 
@@ -84,13 +90,14 @@ void Renderer::DrawTriangle()
 	
 	vk::CommandBufferBeginInfo beginInfo;
 	beginInfo.setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
-	vk::ClearValue clearValue;
-	clearValue.color = vk::ClearColorValue(std::array<float, 4>{0.1f, 0.1f, 0.1f, 1.0f});
+	std::array<vk::ClearValue, 2> clearValues;
+	clearValues[0].color = vk::ClearColorValue(std::array<float, 4>{0.1f, 0.1f, 0.1f, 1.0f});
+	clearValues[1].depthStencil = vk::ClearDepthStencilValue{ 1.0f, 0 };
 	vk::RenderPassBeginInfo rpBeginInfo;
 	rpBeginInfo.setRenderPass(renderProcess->m_RenderPass)
 		.setRenderArea(vk::Rect2D({ 0,0 }, swapChain->m_SwapChainInfo.ImageExtent))
 		.setFramebuffer(swapChain->m_FrameBuffers[imageIndex])
-		.setClearValues(clearValue);
+		.setClearValues(clearValues);
 
 	m_CommandBuffers[m_CurFrame].begin(beginInfo);
 	m_CommandBuffers[m_CurFrame].beginRenderPass(rpBeginInfo, {});
@@ -166,10 +173,10 @@ void Renderer::CreateVertexBuffer()
 		vk::MemoryPropertyFlagBits::eDeviceLocal);
 
 	//Index Buffer
-	m_HostIndexBuffer = CreateScope<Buffer>(sizeof(indicies),
+	m_HostIndexBuffer = CreateScope<Buffer>(sizeof(int) * indicies.size(),
 		vk::BufferUsageFlagBits::eTransferSrc,
 		vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
-	m_DeviceIndexBuffer = CreateScope<Buffer>(sizeof(indicies),
+	m_DeviceIndexBuffer = CreateScope<Buffer>(sizeof(int) * indicies.size(),
 		vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eTransferDst,
 		vk::MemoryPropertyFlagBits::eDeviceLocal);
 }
@@ -285,7 +292,7 @@ void Renderer::UpdateMVP()
 
 	m_MVP.model = glm::rotate(glm::mat4(1.0f), glm::radians(0.0f), glm::vec3(0.0f, 0.0f, 1.0f)) * glm::scale(glm::mat4(1.0f), {3.0f, 3.0f, 3.0f});
 	m_MVP.view = glm::translate(glm::mat4(1.0f), { 0.0, 0.0f, -10.0f });
-	m_MVP.proj  = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 10.0f);
+	m_MVP.proj  = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 100.0f);
 	m_MVP.proj[1][1] *= -1;
 
 	memcpy(m_HostMVPBuffer[m_CurFrame]->m_Map, &m_MVP, sizeof(m_MVP));

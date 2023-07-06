@@ -11,13 +11,13 @@ void Context::Init(uint32_t width, uint32_t height, const std::vector<const char
 	//shader
 	s_TestShader = Shader::Create(Utils::ReadFile("assets/shader/vert.spv"), Utils::ReadFile("assets/shader/frag.spv"));
 
+	s_Context->m_CommandManager = CreateScope<CommandManager>();
 	s_Context->m_SwapChain = CreateScope<SwapChain>(width, height);
 	s_Context->m_RenderProcess = CreateScope<RenderProcess>();
 	s_Context->m_RenderProcess->InitRenderPass();
 	s_Context->m_RenderProcess->InitLayout();
 	s_Context->m_SwapChain->CreateFrameBuffers(width, height);
 	s_Context->m_RenderProcess->InitPipeline(width,height);
-	s_Context->m_CommandManager = CreateScope<CommandManager>();
 	int maxFlightCount = 2;
 	s_Context->m_DescriptorManager = CreateScope<DescriptorManager>(maxFlightCount);
 	s_Context->m_Renderer = CreateScope<Renderer>(maxFlightCount);

@@ -69,9 +69,8 @@ void RenderProcess::InitLayout()
 
 void RenderProcess::InitRenderPass()
 {
-	vk::RenderPassCreateInfo rpci;
-	vk::AttachmentDescription ad;
-	ad.setFormat(Context::s_Context->m_SwapChain->m_SwapChainInfo.Format.format)
+	vk::AttachmentDescription colorAttachment;
+	colorAttachment.setFormat(Context::s_Context->m_SwapChain->m_SwapChainInfo.Format.format)
 		.setInitialLayout(vk::ImageLayout::eUndefined)
 		.setFinalLayout(vk::ImageLayout::ePresentSrcKHR)
 		.setLoadOp(vk::AttachmentLoadOp::eClear)
@@ -79,24 +78,43 @@ void RenderProcess::InitRenderPass()
 		.setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
 		.setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
 		.setSamples(vk::SampleCountFlagBits::e1);
-	rpci.setAttachments(ad);
-
-	vk::AttachmentReference af;
-	af.setLayout(vk::ImageLayout::eColorAttachmentOptimal)
+	vk::AttachmentReference colorAttachmentRef;
+	colorAttachmentRef.setLayout(vk::ImageLayout::eColorAttachmentOptimal)
 		.setAttachment(0);
+
+	vk::AttachmentDescription depthAttachment;
+	depthAttachment.setFormat(Context::s_Context->m_SwapChain->m_DepthTexture->GetFormat())
+		.setInitialLayout(vk::ImageLayout::eUndefined)
+		.setFinalLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
+		.setLoadOp(vk::AttachmentLoadOp::eClear)
+		.setStoreOp(vk::AttachmentStoreOp::eDontCare)
+		.setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+		.setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+		.setSamples(vk::SampleCountFlagBits::e1);
+	vk::AttachmentReference depthAttachmentRef;
+	depthAttachmentRef.setLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
+		.setAttachment(1);
+
+
 	vk::SubpassDescription sd;
 	sd.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
-		.setColorAttachments(af);
-	rpci.setSubpasses(sd);
+		.setColorAttachments(colorAttachmentRef)
+		.setPDepthStencilAttachment(&depthAttachmentRef);
+
 
 	vk::SubpassDependency dependency;
 	dependency.setSrcSubpass(VK_SUBPASS_EXTERNAL)
 		.setDstSubpass(0)
-		.setDstAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
-		.setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
-		.setDstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput);
-	rpci.setDependencies(dependency);
+		.setDstAccessMask(vk::AccessFlagBits::eColorAttachmentWrite | vk::AccessFlagBits::eDepthStencilAttachmentWrite)
+		.setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput | vk::PipelineStageFlagBits::eEarlyFragmentTests)
+		.setDstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput | vk::PipelineStageFlagBits::eEarlyFragmentTests);
 
+
+	std::array<vk::AttachmentDescription, 2> atttachments{ colorAttachment, depthAttachment };
+	vk::RenderPassCreateInfo rpci;
+	rpci.setAttachments(atttachments);
+	rpci.setSubpasses(sd);
+	rpci.setDependencies(dependency);
 	m_RenderPass = Context::s_Context->m_Device.createRenderPass(rpci);
 }
 
@@ -145,6 +163,17 @@ void RenderProcess::InitPipeline(uint32_t width, uint32_t height)
 	createInfo.setPMultisampleState(&multisampleInfo);
 
 	//7. test - stencil test, depth test
+	vk::PipelineDepthStencilStateCreateInfo depthInfo;
+	depthInfo.setDepthTestEnable(true)
+		.setDepthWriteEnable(true)
+		.setDepthCompareOp(vk::CompareOp::eLess)
+		.setDepthBoundsTestEnable(false)
+		.setMinDepthBounds(0.0f)
+		.setMaxDepthBounds(1.0f)
+		.setStencilTestEnable(false)
+		.setFront({})
+		.setBack({});
+	createInfo.setPDepthStencilState(&depthInfo);
 
 	//8. color blending
 	vk::PipelineColorBlendStateCreateInfo blendInfo;

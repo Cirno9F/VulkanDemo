@@ -22,4 +22,4 @@ constexpr Ref<T> CreateRef(Args&& ... args)
 
 #define ASSERT_IFNOT(x, ...) { if(!(x)) { LOG_ERROR("Assertion Failed: {0}" ,__VA_ARGS__);  __debugbreak(); } }
 
-#define ASSERT(...) { LOG_ERROR("Assertion Failed: {0}" , __VA_ARGS__);  __debugbreak(); } }
+#define ASSERT(...) { LOG_ERROR("Assertion Failed: {0}" , __VA_ARGS__);  __debugbreak(); } 

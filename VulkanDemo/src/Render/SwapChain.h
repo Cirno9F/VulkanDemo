@@ -1,5 +1,8 @@
 #pragma once
 
+#include "../Base.h"
+#include "DepthTexture.h"
+
 #include <vulkan/vulkan.hpp>
 
 class SwapChain
@@ -19,6 +22,8 @@ public:
 	std::vector<vk::Image> m_Images;
 	std::vector<vk::ImageView> m_ImageViews;
 	std::vector<vk::Framebuffer> m_FrameBuffers;
+
+	Scope<DepthTexture> m_DepthTexture;
 public:
 	SwapChain(uint32_t width, uint32_t height);
 	~SwapChain();

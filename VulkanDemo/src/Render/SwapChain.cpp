@@ -5,6 +5,8 @@
 
 SwapChain::SwapChain(uint32_t width, uint32_t height)
 {
+	m_DepthTexture = CreateScope<DepthTexture>(width, height);
+
 	QueryInfo(width, height);
 
 	vk::SwapchainCreateInfoKHR createInfo;
@@ -49,6 +51,7 @@ SwapChain::~SwapChain()
 		Context::s_Context->m_Device.destroyImageView(view);
 	}
 	Context::s_Context->m_Device.destroySwapchainKHR(m_Swapchain);
+	m_DepthTexture = nullptr;
 }
 
 void SwapChain::QueryInfo(uint32_t width, uint32_t height)
@@ -121,7 +124,8 @@ void SwapChain::CreateFrameBuffers(uint32_t width, uint32_t height)
 	for (int i = 0;i < m_FrameBuffers.size();i++)
 	{
 		vk::FramebufferCreateInfo createInfo;
-		createInfo.setAttachments(m_ImageViews[i])
+		std::array<vk::ImageView, 2> imageViews{ m_ImageViews[i], m_DepthTexture->GetImageView() };
+		createInfo.setAttachments(imageViews)
 			.setWidth(width)
 			.setHeight(height)
 			.setRenderPass(Context::s_Context->m_RenderProcess->m_RenderPass)

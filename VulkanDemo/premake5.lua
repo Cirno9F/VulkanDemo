@@ -5,7 +5,7 @@ project "VulkanDemo"
    targetdir "bin/%{cfg.buildcfg}"
    staticruntime "off"
 
-   files { "src/**.h", "src/**.cpp", "../vendor/stb_image/**.h", "../vendor/stb_image/**.cpp" }
+   files { "src/**.h", "src/**.cpp", "../vendor/stb_image/**.h", "../vendor/stb_image/**.cpp",  "../vendor/tinyobjloader/**.h"}
 
    includedirs
    {
@@ -13,6 +13,7 @@ project "VulkanDemo"
       "../vendor/stb_image",
       "../vendor/glm",
       "../vendor/spdlog/include",
+      "../vendor/tinyobjloader",
 
       "%{IncludeDir.VulkanSDK}",
    }

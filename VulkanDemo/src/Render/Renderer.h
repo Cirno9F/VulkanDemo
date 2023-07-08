@@ -2,6 +2,7 @@
 
 #include "Texture.h"
 #include "Buffer.h"
+#include "RenderProcess.h"
 #include "../Base.h"
 
 #include <vulkan/vulkan.hpp>
@@ -34,6 +35,9 @@ private:
 	void UpdateMVP();
 
 	void CopyBuffer(vk::Buffer& src, vk::Buffer& dst, uint32_t size, uint32_t srcOffset, uint32_t dstOffset);
+
+	//viking room
+	void InitVikingRoomData();
 private:
     std::vector<vk::CommandBuffer> m_CommandBuffers;
 	std::vector<vk::Semaphore> m_SemaphoreImageAvaliables;
@@ -56,4 +60,10 @@ private:
 	ModelViewProj m_MVP;
 
 	Scope<Texture> m_DefaultTexture;
+
+
+	//viking room
+	Scope<Texture> m_VikingRoomTexture;
+	std::vector<VertexInput> m_VikingVertices;
+	std::vector<uint32_t> m_VikingIndices;
 };

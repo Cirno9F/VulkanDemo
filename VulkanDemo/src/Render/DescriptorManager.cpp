@@ -13,8 +13,8 @@ DescriptorManager::DescriptorManager(uint32_t maxFlightCount) : m_MaxFlightCount
 
 
 	poolSize.setType(vk::DescriptorType::eCombinedImageSampler)
-		.setDescriptorCount(1);
-	createInfo.setMaxSets(1)
+		.setDescriptorCount(2);
+	createInfo.setMaxSets(2)
 		.setFlags(vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet)
 		.setPoolSizes(poolSize);
 	m_ImagePool = Context::s_Context->m_Device.createDescriptorPool(createInfo);

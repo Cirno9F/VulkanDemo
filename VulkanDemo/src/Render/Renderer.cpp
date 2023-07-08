@@ -1,10 +1,12 @@
 #include "Renderer.h"
 #include "Context.h"
 #include "SwapChain.h"
-#include "RenderProcess.h"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
+
+#define TINYOBJLOADER_IMPLEMENTATION
+#include <tiny_obj_loader.h>
 
 static std::array<VertexInput, 8> vertices =
 {
@@ -30,6 +32,8 @@ Renderer::Renderer(uint32_t maxFlightCount) : m_MaxFlightCount(maxFlightCount) ,
 	m_MVP.view = glm::mat4(1.0f);
 	m_MVP.proj = glm::mat4(1.0f);
 
+	InitVikingRoomData();
+
 	CreateCommandBuffers();
 	CreateSemaphores();
 	CreateFences();
@@ -41,6 +45,7 @@ Renderer::Renderer(uint32_t maxFlightCount) : m_MaxFlightCount(maxFlightCount) ,
 	UpdateSets();
 
 	m_DefaultTexture = CreateScope<Texture>("assets/texture/avatar.jpg");
+
 }
 
 Renderer::~Renderer()
@@ -103,10 +108,10 @@ void Renderer::DrawTriangle()
 	m_CommandBuffers[m_CurFrame].beginRenderPass(rpBeginInfo, {});
 	m_CommandBuffers[m_CurFrame].bindPipeline(vk::PipelineBindPoint::eGraphics, Context::s_Context->m_RenderProcess->m_Pipeline);
 	vk::DeviceSize offset = 0;
-	m_CommandBuffers[m_CurFrame].bindDescriptorSets(vk::PipelineBindPoint::eGraphics, Context::s_Context->m_RenderProcess->m_PipelineLayout, 0, { m_DescriptorSets[m_CurFrame], m_DefaultTexture->GetDescriptorSet() }, {});
+	m_CommandBuffers[m_CurFrame].bindDescriptorSets(vk::PipelineBindPoint::eGraphics, Context::s_Context->m_RenderProcess->m_PipelineLayout, 0, { m_DescriptorSets[m_CurFrame], m_VikingRoomTexture->GetDescriptorSet() }, {});
 	m_CommandBuffers[m_CurFrame].bindVertexBuffers(0, m_DeviceVertexBuffer->m_Buffer, offset);
 	m_CommandBuffers[m_CurFrame].bindIndexBuffer(m_DeviceIndexBuffer->m_Buffer, 0, vk::IndexType::eUint32);
-	m_CommandBuffers[m_CurFrame].drawIndexed(indicies.size(), 1, 0, 0, 0);
+	m_CommandBuffers[m_CurFrame].drawIndexed(m_VikingIndices.size(), 1, 0, 0, 0);
 	m_CommandBuffers[m_CurFrame].endRenderPass();
 	m_CommandBuffers[m_CurFrame].end();
 
@@ -163,20 +168,20 @@ void Renderer::CreateFences()
 void Renderer::CreateVertexBuffer()
 {
 	//CPU本地存储的vertex buffer， 用来传输数据
-	m_HostVertexBuffer = CreateScope<Buffer>(sizeof(VertexInput) * vertices.size(),
+	m_HostVertexBuffer = CreateScope<Buffer>(sizeof(VertexInput) * m_VikingVertices.size(),
 		vk::BufferUsageFlagBits::eTransferSrc,
 		vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
 
 	//GPU存储的vertex buffer
-	m_DeviceVertexBuffer = CreateScope<Buffer>(sizeof(VertexInput) * vertices.size(),
+	m_DeviceVertexBuffer = CreateScope<Buffer>(sizeof(VertexInput) * m_VikingVertices.size(),
 		vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst,
 		vk::MemoryPropertyFlagBits::eDeviceLocal);
 
 	//Index Buffer
-	m_HostIndexBuffer = CreateScope<Buffer>(sizeof(int) * indicies.size(),
+	m_HostIndexBuffer = CreateScope<Buffer>(sizeof(int) * m_VikingIndices.size(),
 		vk::BufferUsageFlagBits::eTransferSrc,
 		vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
-	m_DeviceIndexBuffer = CreateScope<Buffer>(sizeof(int) * indicies.size(),
+	m_DeviceIndexBuffer = CreateScope<Buffer>(sizeof(int) * m_VikingIndices.size(),
 		vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eTransferDst,
 		vk::MemoryPropertyFlagBits::eDeviceLocal);
 }
@@ -185,7 +190,7 @@ void Renderer::BufferVertexData()
 {
 	//VertexBuffer
 	void* ptr = Context::s_Context->m_Device.mapMemory(m_HostVertexBuffer->m_Memory, 0, m_HostVertexBuffer->m_Size);
-	memcpy(ptr, vertices.data(), sizeof(vertices));
+	memcpy(ptr, m_VikingVertices.data(), sizeof(VertexInput) * m_VikingVertices.size());
 	Context::s_Context->m_Device.unmapMemory(m_HostVertexBuffer->m_Memory);
 	CopyBuffer(m_HostVertexBuffer->m_Buffer, m_DeviceVertexBuffer->m_Buffer, m_HostVertexBuffer->m_Size, 0, 0);
 	//这里因为HostBuffer的数据已经传给了DeviceBuffer，所以HostBuffer可以删掉了
@@ -193,7 +198,7 @@ void Renderer::BufferVertexData()
 
 	//IndexBuffer
 	ptr = Context::s_Context->m_Device.mapMemory(m_HostIndexBuffer->m_Memory, 0, m_HostIndexBuffer->m_Size);
-	memcpy(ptr, indicies.data(), sizeof(indicies));
+	memcpy(ptr, m_VikingIndices.data(), sizeof(int) * m_VikingIndices.size());
 	Context::s_Context->m_Device.unmapMemory(m_HostIndexBuffer->m_Memory);
 	CopyBuffer(m_HostIndexBuffer->m_Buffer, m_DeviceIndexBuffer->m_Buffer, m_HostIndexBuffer->m_Size, 0, 0);
 	//这里因为HostBuffer的数据已经传给了DeviceBuffer，所以HostBuffer可以删掉了
@@ -290,9 +295,9 @@ void Renderer::UpdateMVP()
 {
 	auto swapChainExtent = Context::s_Context->m_SwapChain->m_SwapChainInfo.ImageExtent;
 
-	m_MVP.model = glm::rotate(glm::mat4(1.0f), glm::radians(0.0f), glm::vec3(0.0f, 0.0f, 1.0f)) * glm::scale(glm::mat4(1.0f), {3.0f, 3.0f, 3.0f});
-	m_MVP.view = glm::translate(glm::mat4(1.0f), { 0.0, 0.0f, -10.0f });
-	m_MVP.proj  = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 100.0f);
+	m_MVP.model = glm::rotate(glm::mat4(1.0f), glm::radians(0.0f), glm::vec3(0.0f, 0.0f, 1.0f)) * glm::scale(glm::mat4(1.0f), {1.0f, 1.0f, 1.0f});
+	m_MVP.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+	m_MVP.proj  = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 1000.0f);
 	m_MVP.proj[1][1] *= -1;
 
 	memcpy(m_HostMVPBuffer[m_CurFrame]->m_Map, &m_MVP, sizeof(m_MVP));
@@ -317,4 +322,39 @@ void Renderer::CopyBuffer(vk::Buffer& src, vk::Buffer& dst, uint32_t size, uint3
 	Context::s_Context->m_Device.waitIdle();
 
 	Context::s_Context->m_CommandManager->FreeCommandBuffer(cmdBuf);
+}
+
+void Renderer::InitVikingRoomData()
+{
+	m_VikingRoomTexture = CreateScope<Texture>("assets/texture/viking_room.png");
+	
+	//load model
+	tinyobj::attrib_t attrib;
+	std::vector<tinyobj::shape_t> shapes;
+	std::vector<tinyobj::material_t> materials;
+	std::string warn, err;
+	ASSERT_IFNOT(tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, "assets/model/viking_room.obj"), warn + err);
+
+	//这里得模型是每个vertex对应一个index
+	for (const auto& shape : shapes) {
+		for (const auto& index : shape.mesh.indices) {
+			VertexInput vertex{};
+
+			vertex.Position = {
+				attrib.vertices[3 * index.vertex_index + 0],
+				attrib.vertices[3 * index.vertex_index + 1],
+				attrib.vertices[3 * index.vertex_index + 2]
+			};
+
+			vertex.TexCoord = {
+				attrib.texcoords[2 * index.texcoord_index + 0],
+				1 - attrib.texcoords[2 * index.texcoord_index + 1]
+			};
+
+			vertex.Color = { 1.0f, 1.0f, 1.0f };
+
+			m_VikingVertices.push_back(vertex);
+			m_VikingIndices.push_back(m_VikingIndices.size());
+		}
+	}
 }

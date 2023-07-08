@@ -335,6 +335,8 @@ void Renderer::InitVikingRoomData()
 	std::string warn, err;
 	ASSERT_IFNOT(tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, "assets/model/viking_room.obj"), warn + err);
 
+
+	std::unordered_map<VertexInput, uint32_t> uniqueVertices{};
 	//这里得模型是每个vertex对应一个index
 	for (const auto& shape : shapes) {
 		for (const auto& index : shape.mesh.indices) {
@@ -353,8 +355,13 @@ void Renderer::InitVikingRoomData()
 
 			vertex.Color = { 1.0f, 1.0f, 1.0f };
 
-			m_VikingVertices.push_back(vertex);
-			m_VikingIndices.push_back(m_VikingIndices.size());
+			if (uniqueVertices.count(vertex) == 0)
+			{
+				uniqueVertices[vertex] = static_cast<uint32_t>(m_VikingVertices.size());
+				m_VikingVertices.push_back(vertex);
+			}
+
+			m_VikingIndices.push_back(uniqueVertices[vertex]);
 		}
 	}
 }

@@ -31,6 +31,8 @@ void Texture::Init(void* data, uint32_t width, uint32_t height)
     auto phyDevice = Context::s_Context->m_PhysicalDevice;
     auto& cmdMgr = Context::s_Context->m_CommandManager;
 
+    vk::Format format = vk::Format::eR8G8B8A8Unorm;
+
     //stage buffer
     const uint32_t size = width * height * 4;
     Scope<Buffer> buffer = CreateScope<Buffer>(size, 
@@ -45,7 +47,7 @@ void Texture::Init(void* data, uint32_t width, uint32_t height)
         .setArrayLayers(1)
         .setMipLevels(1)
         .setExtent({ width, height, 1 })
-        .setFormat(vk::Format::eR8G8B8A8Srgb)
+        .setFormat(format)
         .setTiling(vk::ImageTiling::eOptimal)
         .setInitialLayout(vk::ImageLayout::eUndefined)
         .setUsage(vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled)
@@ -138,7 +140,7 @@ void Texture::Init(void* data, uint32_t width, uint32_t height)
     imCreateInfo.setImage(m_Image)
         .setViewType(vk::ImageViewType::e2D)
         .setComponents(mapping)
-        .setFormat(vk::Format::eR8G8B8A8Srgb)
+        .setFormat(format)
         .setSubresourceRange(range);
     m_ImageView = device.createImageView(imCreateInfo);
 

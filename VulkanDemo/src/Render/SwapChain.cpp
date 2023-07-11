@@ -5,7 +5,13 @@
 
 SwapChain::SwapChain(uint32_t width, uint32_t height)
 {
-	m_DepthTexture = CreateScope<DepthTexture>(width, height);
+	vk::Format format = Texture::FindSupportedFormat(
+		{ vk::Format::eD32Sfloat,vk::Format::eD32SfloatS8Uint,vk::Format::eD24UnormS8Uint },
+		vk::ImageTiling::eOptimal,
+		vk::FormatFeatureFlagBits::eDepthStencilAttachment
+	);
+	m_DepthTexture = CreateScope<Texture>(width, height, format);
+
 
 	QueryInfo(width, height);
 

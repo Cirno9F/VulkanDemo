@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../Base.h"
-#include "DepthTexture.h"
+#include "Texture.h"
 
 #include <vulkan/vulkan.hpp>
 
@@ -23,7 +23,7 @@ public:
 	std::vector<vk::ImageView> m_ImageViews;
 	std::vector<vk::Framebuffer> m_FrameBuffers;
 
-	Scope<DepthTexture> m_DepthTexture;
+	Scope<Texture> m_DepthTexture;
 public:
 	SwapChain(uint32_t width, uint32_t height);
 	~SwapChain();

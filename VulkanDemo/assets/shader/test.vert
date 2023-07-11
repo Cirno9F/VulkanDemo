@@ -11,11 +11,15 @@ layout(binding = 1) uniform ModelViewProj
 	mat4 proj;
 }mvp;
 
+layout(push_constant) uniform PushConsts {
+	mat4 model;
+}cbuffer;
+
 layout(location = 0) out vec2 uv;
 layout(location = 1) out vec3 vColor;
 
 void main(){
-	gl_Position = mvp.proj * mvp.view * mvp.model * vec4(Position, 1.0f);
+	gl_Position = mvp.proj * mvp.view * cbuffer.model * vec4(Position, 1.0f);
 	uv = TexCoord;
 	vColor = Color;
 }

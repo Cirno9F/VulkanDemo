@@ -60,10 +60,17 @@ RenderProcess::~RenderProcess()
 
 void RenderProcess::InitLayout()
 {
+	//constant buffer(for model matrix)
+	std::vector<vk::PushConstantRange> ranges(1);
+	ranges[0].setOffset(0)
+		.setSize(sizeof(glm::mat4))
+		.setStageFlags(vk::ShaderStageFlagBits::eVertex);
+
 	//定义uniform变量的布局
 	vk::PipelineLayoutCreateInfo createInfo;
 	m_SetLayout = CreateSetLayout();
-	createInfo.setSetLayouts(m_SetLayout);
+	createInfo.setSetLayouts(m_SetLayout)
+		.setPushConstantRanges(ranges);
 	m_PipelineLayout = Context::s_Context->m_Device.createPipelineLayout(createInfo);
 }
 

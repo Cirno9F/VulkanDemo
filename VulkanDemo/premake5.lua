@@ -14,14 +14,14 @@ project "VulkanDemo"
       "../vendor/glm",
       "../vendor/spdlog/include",
       "../vendor/tinyobjloader",
-
+      "../vendor/imgui",
       "%{IncludeDir.VulkanSDK}",
    }
 
    links
    {
        "GLFW",
-
+       "ImGui",
        "%{Library.Vulkan}",
    }
 

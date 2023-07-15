@@ -20,7 +20,11 @@ class Renderer
 public:
 	Renderer(uint32_t maxFlightCount = 2);
 	~Renderer();
+	void Begin();
+	void End();
 	void DrawTriangle();
+	vk::CommandBuffer GetFrameCmd() { return m_CommandBuffers[m_CurFrame]; }
+	uint32_t GetImageIndex() { return m_ImageIndex; }
 private:
 	void CreateCommandBuffers();
 	void CreateSemaphores();
@@ -53,6 +57,7 @@ private:
 
 	uint32_t m_MaxFlightCount;
 	uint32_t m_CurFrame;
+	uint32_t m_ImageIndex;
 
 	ViewProj m_ViewProj;
 	glm::mat4 m_Model;

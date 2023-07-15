@@ -55,7 +55,7 @@ Renderer::~Renderer()
 	}
 }
 
-void Renderer::DrawTriangle()
+void Renderer::Begin()
 {
 	UpdateMVP();
 
@@ -72,10 +72,10 @@ void Renderer::DrawTriangle()
 	auto result = device.acquireNextImageKHR(Context::s_Context->m_SwapChain->m_Swapchain,
 		std::numeric_limits<uint64_t>::max(), m_SemaphoreImageAvaliables[m_CurFrame]);
 	ASSERT_IFNOT(result.result == vk::Result::eSuccess, "Acquire next image failed!");
-	auto imageIndex = result.value;
+	m_ImageIndex = result.value;
 
 	m_CommandBuffers[m_CurFrame].reset();
-	
+
 	vk::CommandBufferBeginInfo beginInfo;
 	beginInfo.setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
 	std::array<vk::ClearValue, 2> clearValues;
@@ -84,19 +84,18 @@ void Renderer::DrawTriangle()
 	vk::RenderPassBeginInfo rpBeginInfo;
 	rpBeginInfo.setRenderPass(renderProcess->m_RenderPass)
 		.setRenderArea(vk::Rect2D({ 0,0 }, swapChain->m_SwapChainInfo.ImageExtent))
-		.setFramebuffer(swapChain->m_FrameBuffers[imageIndex])
+		.setFramebuffer(swapChain->m_FrameBuffers[m_ImageIndex])
 		.setClearValues(clearValues);
 
 	m_CommandBuffers[m_CurFrame].begin(beginInfo);
 	m_CommandBuffers[m_CurFrame].beginRenderPass(rpBeginInfo, {});
 	m_CommandBuffers[m_CurFrame].bindPipeline(vk::PipelineBindPoint::eGraphics, Context::s_Context->m_RenderProcess->m_Pipeline);
-	vk::DeviceSize offset = 0;
-	m_CommandBuffers[m_CurFrame].pushConstants(Context::s_Context->m_RenderProcess->m_PipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(glm::mat4), glm::value_ptr(m_Model));
-	m_CommandBuffers[m_CurFrame].pushConstants(Context::s_Context->m_RenderProcess->m_PipelineLayout, vk::ShaderStageFlagBits::eVertex, sizeof(glm::mat4), sizeof(glm::mat4), glm::value_ptr(glm::inverse(m_Model)));
-	m_CommandBuffers[m_CurFrame].bindDescriptorSets(vk::PipelineBindPoint::eGraphics, Context::s_Context->m_RenderProcess->m_PipelineLayout, 0, { m_DescriptorSets[m_CurFrame], m_VikingRoomTexture->GetDescriptorSet() }, {});
-	m_CommandBuffers[m_CurFrame].bindVertexBuffers(0, m_DeviceVertexBuffer->m_Buffer, offset);
-	m_CommandBuffers[m_CurFrame].bindIndexBuffer(m_DeviceIndexBuffer->m_Buffer, 0, vk::IndexType::eUint32);
-	m_CommandBuffers[m_CurFrame].drawIndexed(m_DefaultMesh->GetIndices().size(), 1, 0, 0, 0);
+}
+
+void Renderer::End()
+{
+	auto& swapChain = Context::s_Context->m_SwapChain;
+
 	m_CommandBuffers[m_CurFrame].endRenderPass();
 	m_CommandBuffers[m_CurFrame].end();
 
@@ -109,12 +108,25 @@ void Renderer::DrawTriangle()
 
 
 	vk::PresentInfoKHR presentInfo;
-	presentInfo.setImageIndices(imageIndex)
+	presentInfo.setImageIndices(m_ImageIndex)
 		.setSwapchains(swapChain->m_Swapchain)
 		.setWaitSemaphores(m_SemaphoreImageDrawFinishs[m_CurFrame]);
 	ASSERT_IFNOT(Context::s_Context->m_PresentQueue.presentKHR(presentInfo) == vk::Result::eSuccess, "Image present failed!");
 
 	m_CurFrame = (m_CurFrame + 1) % m_MaxFlightCount;
+}
+
+void Renderer::DrawTriangle()
+{
+
+	vk::DeviceSize offset = 0;
+	m_CommandBuffers[m_CurFrame].pushConstants(Context::s_Context->m_RenderProcess->m_PipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(glm::mat4), glm::value_ptr(m_Model));
+	m_CommandBuffers[m_CurFrame].pushConstants(Context::s_Context->m_RenderProcess->m_PipelineLayout, vk::ShaderStageFlagBits::eVertex, sizeof(glm::mat4), sizeof(glm::mat4), glm::value_ptr(glm::inverse(m_Model)));
+	m_CommandBuffers[m_CurFrame].bindDescriptorSets(vk::PipelineBindPoint::eGraphics, Context::s_Context->m_RenderProcess->m_PipelineLayout, 0, { m_DescriptorSets[m_CurFrame], m_VikingRoomTexture->GetDescriptorSet() }, {});
+	m_CommandBuffers[m_CurFrame].bindVertexBuffers(0, m_DeviceVertexBuffer->m_Buffer, offset);
+	m_CommandBuffers[m_CurFrame].bindIndexBuffer(m_DeviceIndexBuffer->m_Buffer, 0, vk::IndexType::eUint32);
+	m_CommandBuffers[m_CurFrame].drawIndexed(m_DefaultMesh->GetIndices().size(), 1, 0, 0, 0);
+
 }
 
 void Renderer::CreateCommandBuffers()

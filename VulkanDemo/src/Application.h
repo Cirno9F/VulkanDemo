@@ -2,6 +2,7 @@
 
 #include "Base.h"
 #include "Render/Context.h"
+#include "ImGui/ImGuiLayer.h"
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
@@ -20,4 +21,6 @@ private:
 	GLFWwindow* m_Window;
 	uint32_t m_Width, m_Height;
 	std::string m_Name;
+
+	Ref<ImGuiLayer> m_ImGuiLayer;
 };

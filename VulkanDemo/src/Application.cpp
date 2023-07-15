@@ -1,5 +1,7 @@
 #include "Application.h"
 
+#include <imgui.h>
+
 Application::Application(const std::string& name, uint32_t width, uint32_t height)
 	:m_Name(name), m_Width(width), m_Height(height)
 {
@@ -26,10 +28,17 @@ Application::Application(const std::string& name, uint32_t width, uint32_t heigh
 			ASSERT_IFNOT(glfwCreateWindowSurface(instance, m_Window, nullptr, &surface) == VK_SUCCESS, "glfwCreateWindowSurface failed!");
 			return surface;
 		});
+
+	m_ImGuiLayer = CreateRef<ImGuiLayer>(m_Window);
 }
 
 Application::~Application()
-{
+{ 
+	//因为imgui layer里面有个descriptorPool，所以waitIdle暂时放这
+	Context::s_Context->m_Device.waitIdle();
+
+	m_ImGuiLayer = nullptr;
+
 	//context
 	Context::Close();
 
@@ -46,7 +55,19 @@ void Application::Run()
 	{
 		glfwPollEvents();
 
-		Context::s_Context->m_Renderer->DrawTriangle();
+		m_ImGuiLayer->Update([&]() 
+			{
+				ImGui::Begin("Setting");
+				ImGui::Text("This is a setting window");
+				ImGui::End();
+			});
+
+		auto& renderer = Context::s_Context->m_Renderer;
+
+		renderer->Begin();
+		renderer->DrawTriangle();
+		m_ImGuiLayer->Render(renderer->GetFrameCmd());
+		renderer->End();
 	}
 }
 

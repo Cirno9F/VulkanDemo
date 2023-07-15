@@ -25,8 +25,6 @@ void Context::Init(uint32_t width, uint32_t height, const std::vector<const char
 
 void Context::Close()
 {
-	s_Context->m_Device.waitIdle();
-
 	s_Context->m_Renderer = nullptr;
 	s_Context->m_CommandManager = nullptr;
 	s_Context->m_DescriptorManager = nullptr;

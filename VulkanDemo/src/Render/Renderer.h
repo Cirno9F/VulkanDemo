@@ -3,14 +3,14 @@
 #include "Texture.h"
 #include "Buffer.h"
 #include "RenderProcess.h"
+#include "Mesh.h"
 #include "../Base.h"
 
 #include <vulkan/vulkan.hpp>
 #include <vector>
 
-struct ModelViewProj
+struct ViewProj
 {
-	glm::mat4 model;
 	glm::mat4 view;
 	glm::mat4 proj;
 };
@@ -35,9 +35,6 @@ private:
 	void UpdateMVP();
 
 	void CopyBuffer(vk::Buffer& src, vk::Buffer& dst, uint32_t size, uint32_t srcOffset, uint32_t dstOffset);
-
-	//viking room
-	void InitVikingRoomData();
 private:
     std::vector<vk::CommandBuffer> m_CommandBuffers;
 	std::vector<vk::Semaphore> m_SemaphoreImageAvaliables;
@@ -57,13 +54,12 @@ private:
 	uint32_t m_MaxFlightCount;
 	uint32_t m_CurFrame;
 
-	ModelViewProj m_MVP;
+	ViewProj m_ViewProj;
+	glm::mat4 m_Model;
 
 	Scope<Texture> m_DefaultTexture;
 
-
 	//viking room
 	Scope<Texture> m_VikingRoomTexture;
-	std::vector<VertexInput> m_VikingVertices;
-	std::vector<uint32_t> m_VikingIndices;
+	Ref<Mesh> m_DefaultMesh;
 };

@@ -1,32 +1,6 @@
 #pragma once
 
 #include "vulkan/vulkan.hpp"
-#include <glm/glm.hpp>
-#include <glm/gtc/type_ptr.hpp>
-
-#define GLM_ENABLE_EXPERIMENTAL
-#include <glm/gtx/hash.hpp>
-
-struct VertexInput
-{
-	glm::vec3 Position;
-	glm::vec2 TexCoord;
-	glm::vec3 Color;
-
-	bool operator==(const VertexInput& other) const{
-		return Position == other.Position && TexCoord == other.TexCoord && Color == other.Color;
-	}
-};
-
-namespace std {
-	template<> struct hash<VertexInput> {
-		size_t operator()(VertexInput const& vertex) const {
-			return ((hash<glm::vec3>()(vertex.Position) ^
-				(hash<glm::vec3>()(vertex.Color) << 1)) >> 1) ^
-				(hash<glm::vec2>()(vertex.TexCoord) << 1);
-		}
-	};
-};
 
 class RenderProcess
 {

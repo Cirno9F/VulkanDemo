@@ -2,40 +2,9 @@
 #include "../Application.h"
 #include "Context.h"
 #include "SwapChain.h"
+#include "Mesh.h"
 
 #include <glm/glm.hpp>
-
-//TODO: 之后挪个地方
-static std::vector<vk::VertexInputAttributeDescription> GetAttribute()
-{
-	std::vector<vk::VertexInputAttributeDescription> attribute;
-	attribute.resize(3);
-	attribute[0].setBinding(0)
-		.setFormat(vk::Format::eR32G32B32Sfloat)
-		.setLocation(0)
-		.setOffset(0);
-	attribute[1].setBinding(0)
-		.setFormat(vk::Format::eR32G32Sfloat)
-		.setLocation(1)
-		.setOffset(offsetof(VertexInput, TexCoord));
-	attribute[2].setBinding(0)
-		.setFormat(vk::Format::eR32G32B32Sfloat)
-		.setLocation(2)
-		.setOffset(offsetof(VertexInput, Color));
-	return attribute;
-}
-
-static vk::VertexInputBindingDescription GetBinding()
-{
-	vk::VertexInputBindingDescription binding;
-
-	binding.setBinding(0)
-		.setInputRate(vk::VertexInputRate::eVertex)
-		.setStride(sizeof(VertexInput));
-
-	return binding;
-}
-
 
 RenderProcess::RenderProcess()
 {
@@ -63,7 +32,7 @@ void RenderProcess::InitLayout()
 	//constant buffer(for model matrix)
 	std::vector<vk::PushConstantRange> ranges(1);
 	ranges[0].setOffset(0)
-		.setSize(sizeof(glm::mat4))
+		.setSize(sizeof(glm::mat4) * 2)
 		.setStageFlags(vk::ShaderStageFlagBits::eVertex);
 
 	//定义uniform变量的布局
@@ -131,8 +100,8 @@ void RenderProcess::InitPipeline(uint32_t width, uint32_t height)
 
 	//1. Vertex Input
 	vk::PipelineVertexInputStateCreateInfo inputState;
-	auto attribute = GetAttribute();
-	auto binding = GetBinding();
+	auto attribute = VertexInput::GetAttribute();
+	auto binding = VertexInput::GetBinding();
 	inputState.setVertexBindingDescriptions(binding)
 		.setVertexAttributeDescriptions(attribute);
 	createInfo.setPVertexInputState(&inputState);

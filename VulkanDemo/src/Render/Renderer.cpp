@@ -5,52 +5,35 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-#define TINYOBJLOADER_IMPLEMENTATION
-#include <tiny_obj_loader.h>
-
-static std::array<VertexInput, 8> vertices =
-{
-	VertexInput{glm::vec3{-0.5f, -0.5f, 0.0f}, glm::vec2{0.0f, 0.0f}, glm::vec3{0.0f, 0.0f, 0.0f}},
-	VertexInput{glm::vec3{ 0.5f, -0.5f, 0.0f}, glm::vec2{1.0f, 0.0f}, glm::vec3{1.0f, 1.0f, 1.0f}},
-	VertexInput{glm::vec3{ 0.5f,  0.5f, 0.0f}, glm::vec2{1.0f, 1.0f}, glm::vec3{1.0f, 1.0f, 1.0f}},
-	VertexInput{glm::vec3{-0.5f,  0.5f, 0.0f}, glm::vec2{0.0f, 1.0f}, glm::vec3{1.0f, 1.0f, 1.0f}},
-
-
-	VertexInput{glm::vec3{-0.2f, -0.2f, 1.0f}, glm::vec2{0.0f, 0.0f}, glm::vec3{1.0f, 1.0f, 1.0f}},
-	VertexInput{glm::vec3{ 0.2f, -0.2f, 1.0f}, glm::vec2{1.0f, 0.0f}, glm::vec3{1.0f, 1.0f, 1.0f}},
-	VertexInput{glm::vec3{ 0.2f,  0.2f, 1.0f}, glm::vec2{1.0f, 1.0f}, glm::vec3{1.0f, 1.0f, 1.0f}},
-	VertexInput{glm::vec3{-0.2f,  0.2f, 1.0f}, glm::vec2{0.0f, 1.0f}, glm::vec3{1.0f, 1.0f, 1.0f}},
-};
-
-static std::array<int, 12> indicies = { 0, 1, 2, 0, 2, 3 , 4, 5, 6, 4, 6, 7};
-
 static glm::vec3 color = { 0.8f,0.6f,0.2f };
 
 Renderer::Renderer(uint32_t maxFlightCount) : m_MaxFlightCount(maxFlightCount) , m_CurFrame(0)
 {
-	m_MVP.model = glm::mat4(1.0f);
-	m_MVP.view = glm::mat4(1.0f);
-	m_MVP.proj = glm::mat4(1.0f);
-
-	InitVikingRoomData();
+	m_Model = glm::mat4(1.0f);
+	m_ViewProj.view = glm::mat4(1.0f);
+	m_ViewProj.proj = glm::mat4(1.0f);
 
 	CreateCommandBuffers();
 	CreateSemaphores();
 	CreateFences();
-	CreateVertexBuffer();
-	BufferVertexData();
 	CreateUniformBuffer();
 	BufferUniformData();
 	AllocateSets();
 	UpdateSets();
 
 	m_DefaultTexture = CreateScope<Texture>("assets/texture/avatar.jpg");
+	m_DefaultMesh = CreateRef<Mesh>("assets/model/material_sphere.obj");
+	m_VikingRoomTexture = CreateScope<Texture>("assets/texture/viking_room.png");
 
+	CreateVertexBuffer();
+	BufferVertexData();
 }
 
 Renderer::~Renderer()
 {
 	m_DefaultTexture = nullptr;
+	m_DefaultMesh = nullptr;
+	m_VikingRoomTexture = nullptr;
 
 	m_DeviceIndexBuffer = nullptr;
 	m_DeviceVertexBuffer = nullptr;
@@ -108,11 +91,12 @@ void Renderer::DrawTriangle()
 	m_CommandBuffers[m_CurFrame].beginRenderPass(rpBeginInfo, {});
 	m_CommandBuffers[m_CurFrame].bindPipeline(vk::PipelineBindPoint::eGraphics, Context::s_Context->m_RenderProcess->m_Pipeline);
 	vk::DeviceSize offset = 0;
-	m_CommandBuffers[m_CurFrame].pushConstants(Context::s_Context->m_RenderProcess->m_PipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(glm::mat4), glm::value_ptr(m_MVP.model));
+	m_CommandBuffers[m_CurFrame].pushConstants(Context::s_Context->m_RenderProcess->m_PipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(glm::mat4), glm::value_ptr(m_Model));
+	m_CommandBuffers[m_CurFrame].pushConstants(Context::s_Context->m_RenderProcess->m_PipelineLayout, vk::ShaderStageFlagBits::eVertex, sizeof(glm::mat4), sizeof(glm::mat4), glm::value_ptr(glm::inverse(m_Model)));
 	m_CommandBuffers[m_CurFrame].bindDescriptorSets(vk::PipelineBindPoint::eGraphics, Context::s_Context->m_RenderProcess->m_PipelineLayout, 0, { m_DescriptorSets[m_CurFrame], m_VikingRoomTexture->GetDescriptorSet() }, {});
 	m_CommandBuffers[m_CurFrame].bindVertexBuffers(0, m_DeviceVertexBuffer->m_Buffer, offset);
 	m_CommandBuffers[m_CurFrame].bindIndexBuffer(m_DeviceIndexBuffer->m_Buffer, 0, vk::IndexType::eUint32);
-	m_CommandBuffers[m_CurFrame].drawIndexed(m_VikingIndices.size(), 1, 0, 0, 0);
+	m_CommandBuffers[m_CurFrame].drawIndexed(m_DefaultMesh->GetIndices().size(), 1, 0, 0, 0);
 	m_CommandBuffers[m_CurFrame].endRenderPass();
 	m_CommandBuffers[m_CurFrame].end();
 
@@ -169,20 +153,20 @@ void Renderer::CreateFences()
 void Renderer::CreateVertexBuffer()
 {
 	//CPU本地存储的vertex buffer， 用来传输数据
-	m_HostVertexBuffer = CreateScope<Buffer>(sizeof(VertexInput) * m_VikingVertices.size(),
+	m_HostVertexBuffer = CreateScope<Buffer>(sizeof(VertexInput) * m_DefaultMesh->GetVertices().size(),
 		vk::BufferUsageFlagBits::eTransferSrc,
 		vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
 
 	//GPU存储的vertex buffer
-	m_DeviceVertexBuffer = CreateScope<Buffer>(sizeof(VertexInput) * m_VikingVertices.size(),
+	m_DeviceVertexBuffer = CreateScope<Buffer>(sizeof(VertexInput) * m_DefaultMesh->GetVertices().size(),
 		vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst,
 		vk::MemoryPropertyFlagBits::eDeviceLocal);
 
 	//Index Buffer
-	m_HostIndexBuffer = CreateScope<Buffer>(sizeof(int) * m_VikingIndices.size(),
+	m_HostIndexBuffer = CreateScope<Buffer>(sizeof(int) * m_DefaultMesh->GetIndices().size(),
 		vk::BufferUsageFlagBits::eTransferSrc,
 		vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
-	m_DeviceIndexBuffer = CreateScope<Buffer>(sizeof(int) * m_VikingIndices.size(),
+	m_DeviceIndexBuffer = CreateScope<Buffer>(sizeof(int) * m_DefaultMesh->GetIndices().size(),
 		vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eTransferDst,
 		vk::MemoryPropertyFlagBits::eDeviceLocal);
 }
@@ -191,7 +175,7 @@ void Renderer::BufferVertexData()
 {
 	//VertexBuffer
 	void* ptr = Context::s_Context->m_Device.mapMemory(m_HostVertexBuffer->m_Memory, 0, m_HostVertexBuffer->m_Size);
-	memcpy(ptr, m_VikingVertices.data(), sizeof(VertexInput) * m_VikingVertices.size());
+	memcpy(ptr, m_DefaultMesh->GetVertices().data(), sizeof(VertexInput) * m_DefaultMesh->GetVertices().size());
 	Context::s_Context->m_Device.unmapMemory(m_HostVertexBuffer->m_Memory);
 	CopyBuffer(m_HostVertexBuffer->m_Buffer, m_DeviceVertexBuffer->m_Buffer, m_HostVertexBuffer->m_Size, 0, 0);
 	//这里因为HostBuffer的数据已经传给了DeviceBuffer，所以HostBuffer可以删掉了
@@ -199,7 +183,7 @@ void Renderer::BufferVertexData()
 
 	//IndexBuffer
 	ptr = Context::s_Context->m_Device.mapMemory(m_HostIndexBuffer->m_Memory, 0, m_HostIndexBuffer->m_Size);
-	memcpy(ptr, m_VikingIndices.data(), sizeof(int) * m_VikingIndices.size());
+	memcpy(ptr, m_DefaultMesh->GetIndices().data(), sizeof(int) * m_DefaultMesh->GetIndices().size());
 	Context::s_Context->m_Device.unmapMemory(m_HostIndexBuffer->m_Memory);
 	CopyBuffer(m_HostIndexBuffer->m_Buffer, m_DeviceIndexBuffer->m_Buffer, m_HostIndexBuffer->m_Size, 0, 0);
 	//这里因为HostBuffer的数据已经传给了DeviceBuffer，所以HostBuffer可以删掉了
@@ -227,7 +211,7 @@ void Renderer::CreateUniformBuffer()
 	m_HostMVPBuffer.resize(m_MaxFlightCount);
 	for (auto& buffer : m_HostMVPBuffer)
 	{
-		buffer = CreateScope<Buffer>(sizeof(m_MVP),
+		buffer = CreateScope<Buffer>(sizeof(ViewProj),
 			vk::BufferUsageFlagBits::eUniformBuffer,
 			vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
 	}
@@ -252,7 +236,7 @@ void Renderer::BufferUniformData()
 	{
 		auto& hostBuffer = m_HostMVPBuffer[i];
 		hostBuffer->m_Map = Context::s_Context->m_Device.mapMemory(hostBuffer->m_Memory, 0, hostBuffer->m_Size);
-		memcpy(hostBuffer->m_Map, &m_MVP, sizeof(m_MVP));
+		memcpy(hostBuffer->m_Map, &m_ViewProj, sizeof(ViewProj));
 	}
 }
 
@@ -296,12 +280,12 @@ void Renderer::UpdateMVP()
 {
 	auto swapChainExtent = Context::s_Context->m_SwapChain->m_SwapChainInfo.ImageExtent;
 
-	m_MVP.model = glm::rotate(glm::mat4(1.0f), glm::radians(0.0f), glm::vec3(0.0f, 0.0f, 1.0f)) * glm::scale(glm::mat4(1.0f), {1.0f, 1.0f, 1.0f});
-	m_MVP.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-	m_MVP.proj  = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 1000.0f);
-	m_MVP.proj[1][1] *= -1;
+	m_Model = glm::rotate(glm::mat4(1.0f), glm::radians(0.0f), glm::vec3(0.0f, 0.0f, 1.0f)) * glm::scale(glm::mat4(1.0f), {1.0f, 1.0f, 1.0f});
+	m_ViewProj.view = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -5.0f));
+	m_ViewProj.proj  = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 1000.0f);
+	m_ViewProj.proj[1][1] *= -1;
 
-	memcpy(m_HostMVPBuffer[m_CurFrame]->m_Map, &m_MVP, sizeof(m_MVP));
+	memcpy(m_HostMVPBuffer[m_CurFrame]->m_Map, &m_ViewProj, sizeof(ViewProj));
 }
 
 void Renderer::CopyBuffer(vk::Buffer& src, vk::Buffer& dst, uint32_t size, uint32_t srcOffset, uint32_t dstOffset)
@@ -323,46 +307,4 @@ void Renderer::CopyBuffer(vk::Buffer& src, vk::Buffer& dst, uint32_t size, uint3
 	Context::s_Context->m_Device.waitIdle();
 
 	Context::s_Context->m_CommandManager->FreeCommandBuffer(cmdBuf);
-}
-
-void Renderer::InitVikingRoomData()
-{
-	m_VikingRoomTexture = CreateScope<Texture>("assets/texture/viking_room.png");
-	
-	//load model
-	tinyobj::attrib_t attrib;
-	std::vector<tinyobj::shape_t> shapes;
-	std::vector<tinyobj::material_t> materials;
-	std::string warn, err;
-	ASSERT_IFNOT(tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, "assets/model/viking_room.obj"), warn + err);
-
-
-	std::unordered_map<VertexInput, uint32_t> uniqueVertices{};
-	//这里得模型是每个vertex对应一个index
-	for (const auto& shape : shapes) {
-		for (const auto& index : shape.mesh.indices) {
-			VertexInput vertex{};
-
-			vertex.Position = {
-				attrib.vertices[3 * index.vertex_index + 0],
-				attrib.vertices[3 * index.vertex_index + 1],
-				attrib.vertices[3 * index.vertex_index + 2]
-			};
-
-			vertex.TexCoord = {
-				attrib.texcoords[2 * index.texcoord_index + 0],
-				1 - attrib.texcoords[2 * index.texcoord_index + 1]
-			};
-
-			vertex.Color = { 1.0f, 1.0f, 1.0f };
-
-			if (uniqueVertices.count(vertex) == 0)
-			{
-				uniqueVertices[vertex] = static_cast<uint32_t>(m_VikingVertices.size());
-				m_VikingVertices.push_back(vertex);
-			}
-
-			m_VikingIndices.push_back(uniqueVertices[vertex]);
-		}
-	}
 }

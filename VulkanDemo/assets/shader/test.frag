@@ -21,12 +21,64 @@ layout(binding = 0) uniform Material
 
 layout(set = 1, binding = 0) uniform sampler2D tex;
 
+
+//math
+float pow2(float x)
+{
+	return x * x;
+}
+
+//BRDF
+#define PI 3.1415926
+//Normal Distribution Function
+float D_GGX(float NoH, float roughness)
+{
+	float a = NoH * roughness;
+	float k = roughness / (1.0f - pow2(NoH) + pow2(a));
+	return k * k * (1.0 / PI);
+}
+//Geometric Shadowing
+float V_SmithGGXCorrelated(float NoV, float NoL, float roughness)
+{
+	float a2 = roughness * roughness;
+	float GGXV = NoL * sqrt(NoV * NoV * (1.0 - a2) + a2);
+	float GGXL = NoV * sqrt(NoL * NoL * (1.0 - a2) + a2);
+	return 0.5f / (GGXV + GGXL);
+}
+//Fresnel
+vec3 F_Schlick(float u, vec3 f0, float f90)
+{
+	return f0 + (vec3(f90)-f0)*pow(1.0f-u,5.0f);
+}
+float Fd_Lambert()
+{
+	return 1.0f / PI;
+}
+
+
 void main()
 {
+	vec3 n = normalize(normal);
 	vec3 v = normalize(cameraPos - vec3(world));
 	vec3 l = normalize(-lightDir);
 	vec3 h = normalize(v+l);
-	float diffuse = max(dot(l, normal), 0.0f);
-	float specular = max(pow(dot(h, normal), 3.0f) ,0.0f);
-	outColor = vec4(mat.albedo * (diffuse + specular), 1.0f);
+
+	float NoV = abs(dot(n,v))+1e-5;
+	float NoL = clamp(dot(n,l),0.0f,1.0f);
+	float NoH = clamp(dot(n,h),0.0f,1.0f);
+	float LoH = clamp(dot(l,h),0.0f,1.0f);
+
+	float roughness = mat.roughness;
+
+	float D = D_GGX(NoH,roughness);
+	vec3 f0 = vec3(0.04f);
+	float f90 = 1.0f;
+	vec3 F = F_Schlick(LoH, f0, f90);
+	float V = V_SmithGGXCorrelated(NoV,NoL,roughness);
+
+	vec3 Fr = (D * V) * F;
+	vec3 Fd = mat.albedo * Fd_Lambert();
+
+	vec3 lightColor = vec3(1.0f);
+	outColor = vec4(lightColor * (Fr + Fd) * NoL, 1.0f); 
 }

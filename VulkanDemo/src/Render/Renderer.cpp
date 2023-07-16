@@ -2,22 +2,16 @@
 #include "Context.h"
 #include "SwapChain.h"
 
+#include <glm/gtx/quaternion.hpp>
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-static glm::vec3 color = { 0.8f,0.6f,0.2f };
-
 Renderer::Renderer(uint32_t maxFlightCount) : m_MaxFlightCount(maxFlightCount) , m_CurFrame(0)
 {
-	m_Model = glm::mat4(1.0f);
-	m_ViewProj.view = glm::mat4(1.0f);
-	m_ViewProj.proj = glm::mat4(1.0f);
-
 	CreateCommandBuffers();
 	CreateSemaphores();
 	CreateFences();
 	CreateUniformBuffer();
-	BufferUniformData();
 	AllocateSets();
 	UpdateSets();
 
@@ -39,8 +33,8 @@ Renderer::~Renderer()
 	m_DeviceVertexBuffer = nullptr;
 	for (uint32_t i = 0;i < m_MaxFlightCount;i++)
 	{
-		m_HostUniformBuffer[i] = nullptr;
-		m_DeviceUniformBuffer[i] = nullptr;
+		m_HostMaterialBuffer[i] = nullptr;
+		m_DeviceMaterialBuffer[i] = nullptr;
 	}
 
 	auto& device = Context::s_Context->m_Device;
@@ -57,7 +51,8 @@ Renderer::~Renderer()
 
 void Renderer::Begin()
 {
-	UpdateMVP();
+	UpdateCommonBuffer();
+	UpdateMaterial();
 
 	auto& device = Context::s_Context->m_Device;
 	auto& renderProcess = Context::s_Context->m_RenderProcess;
@@ -118,10 +113,11 @@ void Renderer::End()
 
 void Renderer::DrawTriangle()
 {
+	glm::mat4 model = glm::rotate(glm::mat4(1.0f), glm::radians(0.0f), glm::vec3(0.0f, 0.0f, 1.0f)) * glm::scale(glm::mat4(1.0f), { 1.0f, 1.0f, 1.0f });
 
 	vk::DeviceSize offset = 0;
-	m_CommandBuffers[m_CurFrame].pushConstants(Context::s_Context->m_RenderProcess->m_PipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(glm::mat4), glm::value_ptr(m_Model));
-	m_CommandBuffers[m_CurFrame].pushConstants(Context::s_Context->m_RenderProcess->m_PipelineLayout, vk::ShaderStageFlagBits::eVertex, sizeof(glm::mat4), sizeof(glm::mat4), glm::value_ptr(glm::inverse(m_Model)));
+	m_CommandBuffers[m_CurFrame].pushConstants(Context::s_Context->m_RenderProcess->m_PipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(glm::mat4), glm::value_ptr(model));
+	m_CommandBuffers[m_CurFrame].pushConstants(Context::s_Context->m_RenderProcess->m_PipelineLayout, vk::ShaderStageFlagBits::eVertex, sizeof(glm::mat4), sizeof(glm::mat4), glm::value_ptr(glm::inverse(model)));
 	m_CommandBuffers[m_CurFrame].bindDescriptorSets(vk::PipelineBindPoint::eGraphics, Context::s_Context->m_RenderProcess->m_PipelineLayout, 0, { m_DescriptorSets[m_CurFrame], m_VikingRoomTexture->GetDescriptorSet() }, {});
 	m_CommandBuffers[m_CurFrame].bindVertexBuffers(0, m_DeviceVertexBuffer->m_Buffer, offset);
 	m_CommandBuffers[m_CurFrame].bindIndexBuffer(m_DeviceIndexBuffer->m_Buffer, 0, vk::IndexType::eUint32);
@@ -204,51 +200,29 @@ void Renderer::BufferVertexData()
 
 void Renderer::CreateUniformBuffer()
 {
-	m_HostUniformBuffer.resize(m_MaxFlightCount);
-	m_DeviceUniformBuffer.resize(m_MaxFlightCount);
-	for (auto& buffer : m_HostUniformBuffer)
+	m_HostMaterialBuffer.resize(m_MaxFlightCount);
+	m_DeviceMaterialBuffer.resize(m_MaxFlightCount);
+	for (auto& buffer : m_HostMaterialBuffer)
 	{
-		buffer = CreateScope<Buffer>(sizeof(color),
+		buffer = CreateScope<Buffer>(sizeof(Material),
 			vk::BufferUsageFlagBits::eTransferSrc,
 			vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
 	}
-	for (auto& buffer : m_DeviceUniformBuffer)
+	for (auto& buffer : m_DeviceMaterialBuffer)
 	{
-		buffer = CreateScope<Buffer>(sizeof(color),
+		buffer = CreateScope<Buffer>(sizeof(Material),
 			vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eUniformBuffer,
 			vk::MemoryPropertyFlagBits::eDeviceLocal);
 	}
 
 
-	m_HostMVPBuffer.resize(m_MaxFlightCount);
-	for (auto& buffer : m_HostMVPBuffer)
+	m_HostCommonBuffer.resize(m_MaxFlightCount);
+	for (auto& buffer : m_HostCommonBuffer)
 	{
-		buffer = CreateScope<Buffer>(sizeof(ViewProj),
+		buffer = CreateScope<Buffer>(sizeof(CommonBufferInfo),
 			vk::BufferUsageFlagBits::eUniformBuffer,
 			vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
-	}
-}
-
-void Renderer::BufferUniformData()
-{
-	for (int i = 0;i < m_HostUniformBuffer.size();i++)
-	{
-		auto& hostBuffer = m_HostUniformBuffer[i];
-		auto& deviceBuffer = m_DeviceUniformBuffer[i];
-		void* ptr = Context::s_Context->m_Device.mapMemory(hostBuffer->m_Memory, 0, hostBuffer->m_Size);
-		memcpy(ptr, glm::value_ptr(color), sizeof(color));
-		Context::s_Context->m_Device.unmapMemory(hostBuffer->m_Memory);
-
-		CopyBuffer(hostBuffer->m_Buffer, deviceBuffer->m_Buffer, hostBuffer->m_Size, 0, 0);
-	}
-
-
-
-	for (int i = 0;i < m_HostMVPBuffer.size();i++)
-	{
-		auto& hostBuffer = m_HostMVPBuffer[i];
-		hostBuffer->m_Map = Context::s_Context->m_Device.mapMemory(hostBuffer->m_Memory, 0, hostBuffer->m_Size);
-		memcpy(hostBuffer->m_Map, &m_ViewProj, sizeof(ViewProj));
+		buffer->m_Map = Context::s_Context->m_Device.mapMemory(buffer->m_Memory, 0, buffer->m_Size);
 	}
 }
 
@@ -264,12 +238,12 @@ void Renderer::UpdateSets()
 		auto set = m_DescriptorSets[i];
 
 		std::array<vk::DescriptorBufferInfo, 2> bufferInfo;
-		bufferInfo[0].setBuffer(m_DeviceUniformBuffer[i]->m_Buffer)
+		bufferInfo[0].setBuffer(m_DeviceMaterialBuffer[i]->m_Buffer)
 			.setOffset(0)
-			.setRange(m_DeviceUniformBuffer[i]->m_Size);
-		bufferInfo[1].setBuffer(m_HostMVPBuffer[i]->m_Buffer)
+			.setRange(m_DeviceMaterialBuffer[i]->m_Size);
+		bufferInfo[1].setBuffer(m_HostCommonBuffer[i]->m_Buffer)
 			.setOffset(0)
-			.setRange(m_HostMVPBuffer[i]->m_Size);
+			.setRange(m_HostCommonBuffer[i]->m_Size);
 
 		std::array<vk::WriteDescriptorSet, 2> writer;
 		writer[0].setDescriptorType(vk::DescriptorType::eUniformBuffer)
@@ -288,16 +262,32 @@ void Renderer::UpdateSets()
 	}
 }
 
-void Renderer::UpdateMVP()
+void Renderer::UpdateCommonBuffer()
 {
 	auto swapChainExtent = Context::s_Context->m_SwapChain->m_SwapChainInfo.ImageExtent;
+	glm::quat quat = glm::quat(m_Camera.EulerAngle);
+	glm::vec3 forward = glm::rotate(quat, glm::vec3(0.0f, 0.0f, -1.0f));
+	m_CommonBufferInfo.CameraPosition = -forward * m_Camera.Distance;
+	m_CommonBufferInfo.View = glm::translate(glm::mat4(1.0f), m_CommonBufferInfo.CameraPosition)  * glm::toMat4(quat);
+	m_CommonBufferInfo.View = glm::inverse(m_CommonBufferInfo.View);
+	m_CommonBufferInfo.Proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 1000.0f);
+	m_CommonBufferInfo.Proj[1][1] *= -1;
 
-	m_Model = glm::rotate(glm::mat4(1.0f), glm::radians(0.0f), glm::vec3(0.0f, 0.0f, 1.0f)) * glm::scale(glm::mat4(1.0f), {1.0f, 1.0f, 1.0f});
-	m_ViewProj.view = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -5.0f));
-	m_ViewProj.proj  = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 1000.0f);
-	m_ViewProj.proj[1][1] *= -1;
+	memcpy(m_HostCommonBuffer[m_CurFrame]->m_Map, &m_CommonBufferInfo, sizeof(CommonBufferInfo));
+}
 
-	memcpy(m_HostMVPBuffer[m_CurFrame]->m_Map, &m_ViewProj, sizeof(ViewProj));
+void Renderer::UpdateMaterial()
+{
+	for (int i = 0;i < m_HostMaterialBuffer.size();i++)
+	{
+		auto& hostBuffer = m_HostMaterialBuffer[i];
+		auto& deviceBuffer = m_DeviceMaterialBuffer[i];
+		void* ptr = Context::s_Context->m_Device.mapMemory(hostBuffer->m_Memory, 0, hostBuffer->m_Size);
+		memcpy(ptr, &m_PBRMaterial, sizeof(Material));
+		Context::s_Context->m_Device.unmapMemory(hostBuffer->m_Memory);
+
+		CopyBuffer(hostBuffer->m_Buffer, deviceBuffer->m_Buffer, hostBuffer->m_Size, 0, 0);
+	}
 }
 
 void Renderer::CopyBuffer(vk::Buffer& src, vk::Buffer& dst, uint32_t size, uint32_t srcOffset, uint32_t dstOffset)

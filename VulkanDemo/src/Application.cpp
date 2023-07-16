@@ -2,6 +2,7 @@
 
 #include <imgui.h>
 
+
 Application::Application(const std::string& name, uint32_t width, uint32_t height)
 	:m_Name(name), m_Width(width), m_Height(height)
 {
@@ -55,14 +56,23 @@ void Application::Run()
 	{
 		glfwPollEvents();
 
+		auto& renderer = Context::s_Context->m_Renderer;
+
 		m_ImGuiLayer->Update([&]() 
 			{
 				ImGui::Begin("Setting");
-				ImGui::Text("This is a setting window");
+				ImGui::Text("----Camera----");
+				ImGui::DragFloat3("EulerAngle", glm::value_ptr(renderer->m_Camera.EulerAngle), 0.02f, -2.0f, 2.0f, "%.3f");
+				ImGui::DragFloat("Distance", &renderer->m_Camera.Distance, 0.02f, 0.0f, 10.0f, "%.3f");
+				ImGui::Text("----Light----");
+				ImGui::DragFloat3("LightDir", glm::value_ptr(renderer->m_CommonBufferInfo.LightDir), 0.02f, -2.0f, 2.0f, "%.3f");
+				ImGui::Text("----Material----");
+				ImGui::ColorEdit3("Albedo", glm::value_ptr(renderer->m_PBRMaterial.Albedo));
+				ImGui::DragFloat("Roughness", &renderer->m_PBRMaterial.Roughness, 0.02f, 0.0f, 1.0f, "%.3f");
+				ImGui::DragFloat("Metallic", &renderer->m_PBRMaterial.Metallic, 0.02f, 0.0f, 1.0f, "%.3f");
 				ImGui::End();
 			});
 
-		auto& renderer = Context::s_Context->m_Renderer;
 
 		renderer->Begin();
 		renderer->DrawTriangle();

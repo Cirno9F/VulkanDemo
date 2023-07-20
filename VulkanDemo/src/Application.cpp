@@ -70,6 +70,7 @@ void Application::Run()
 				ImGui::ColorEdit3("Albedo", glm::value_ptr(renderer->m_PBRMaterial.Albedo));
 				ImGui::DragFloat("Roughness", &renderer->m_PBRMaterial.Roughness, 0.02f, 0.0f, 1.0f, "%.3f");
 				ImGui::DragFloat("Metallic", &renderer->m_PBRMaterial.Metallic, 0.02f, 0.0f, 1.0f, "%.3f");
+				ImGui::DragFloat("Reflectance", &renderer->m_PBRMaterial.Reflectance, 0.02f, 0.0f, 1.0f, "%.3f");
 				ImGui::End();
 			});
 

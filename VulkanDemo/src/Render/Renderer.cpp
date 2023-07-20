@@ -182,17 +182,13 @@ void Renderer::CreateVertexBuffer()
 void Renderer::BufferVertexData()
 {
 	//VertexBuffer
-	void* ptr = Context::s_Context->m_Device.mapMemory(m_HostVertexBuffer->m_Memory, 0, m_HostVertexBuffer->m_Size);
-	memcpy(ptr, m_DefaultMesh->GetVertices().data(), sizeof(VertexInput) * m_DefaultMesh->GetVertices().size());
-	Context::s_Context->m_Device.unmapMemory(m_HostVertexBuffer->m_Memory);
+	memcpy(m_HostVertexBuffer->m_Map, m_DefaultMesh->GetVertices().data(), sizeof(VertexInput) * m_DefaultMesh->GetVertices().size());
 	CopyBuffer(m_HostVertexBuffer->m_Buffer, m_DeviceVertexBuffer->m_Buffer, m_HostVertexBuffer->m_Size, 0, 0);
 	//这里因为HostBuffer的数据已经传给了DeviceBuffer，所以HostBuffer可以删掉了
 	m_HostVertexBuffer = nullptr;
 
 	//IndexBuffer
-	ptr = Context::s_Context->m_Device.mapMemory(m_HostIndexBuffer->m_Memory, 0, m_HostIndexBuffer->m_Size);
-	memcpy(ptr, m_DefaultMesh->GetIndices().data(), sizeof(int) * m_DefaultMesh->GetIndices().size());
-	Context::s_Context->m_Device.unmapMemory(m_HostIndexBuffer->m_Memory);
+	memcpy(m_HostIndexBuffer->m_Map, m_DefaultMesh->GetIndices().data(), sizeof(int) * m_DefaultMesh->GetIndices().size());
 	CopyBuffer(m_HostIndexBuffer->m_Buffer, m_DeviceIndexBuffer->m_Buffer, m_HostIndexBuffer->m_Size, 0, 0);
 	//这里因为HostBuffer的数据已经传给了DeviceBuffer，所以HostBuffer可以删掉了
 	m_HostIndexBuffer = nullptr;
@@ -222,7 +218,6 @@ void Renderer::CreateUniformBuffer()
 		buffer = CreateScope<Buffer>(sizeof(CommonBufferInfo),
 			vk::BufferUsageFlagBits::eUniformBuffer,
 			vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
-		buffer->m_Map = Context::s_Context->m_Device.mapMemory(buffer->m_Memory, 0, buffer->m_Size);
 	}
 }
 
@@ -282,10 +277,8 @@ void Renderer::UpdateMaterial()
 	{
 		auto& hostBuffer = m_HostMaterialBuffer[i];
 		auto& deviceBuffer = m_DeviceMaterialBuffer[i];
-		void* ptr = Context::s_Context->m_Device.mapMemory(hostBuffer->m_Memory, 0, hostBuffer->m_Size);
-		memcpy(ptr, &m_PBRMaterial, sizeof(Material));
-		Context::s_Context->m_Device.unmapMemory(hostBuffer->m_Memory);
 
+		memcpy(hostBuffer->m_Map, &m_PBRMaterial, sizeof(Material));
 		CopyBuffer(hostBuffer->m_Buffer, deviceBuffer->m_Buffer, hostBuffer->m_Size, 0, 0);
 	}
 }

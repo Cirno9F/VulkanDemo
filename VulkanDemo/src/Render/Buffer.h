@@ -11,7 +11,7 @@ public:
 public:
 	vk::Buffer m_Buffer;
 	vk::DeviceMemory m_Memory;
-	void* m_Map;
+	void* m_Map = nullptr;
 	size_t m_Size;
 private:
 	void CreateBuffer(size_t size, vk::BufferUsageFlags usage);

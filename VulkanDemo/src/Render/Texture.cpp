@@ -114,7 +114,6 @@ void Texture::Init(void* data, uint32_t width, uint32_t height)
     Scope<Buffer> buffer = CreateScope<Buffer>(size, 
         vk::BufferUsageFlagBits::eTransferSrc,
         vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible);
-    buffer->m_Map = device.mapMemory(buffer->m_Memory, 0, buffer->m_Size);
     memcpy(buffer->m_Map, data, size);
 
     //create image

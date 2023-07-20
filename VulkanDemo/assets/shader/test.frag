@@ -17,6 +17,7 @@ layout(binding = 0) uniform Material
 	vec3 albedo;
 	float roughness;
 	float metallic;
+	float reflectance;
 }mat;
 
 layout(set = 1, binding = 0) uniform sampler2D tex;
@@ -63,21 +64,23 @@ void main()
 	vec3 l = normalize(-lightDir);
 	vec3 h = normalize(v+l);
 
-	float NoV = abs(dot(n,v))+1e-5;
+	float NoV = clamp(dot(n,v),0.0f,1.0f)+1e-5;
 	float NoL = clamp(dot(n,l),0.0f,1.0f);
 	float NoH = clamp(dot(n,h),0.0f,1.0f);
 	float LoH = clamp(dot(l,h),0.0f,1.0f);
 
 	float roughness = mat.roughness;
 
+	//most dielectric material's reflectance is 4%
+	float reflectance = mat.reflectance;
 	float D = D_GGX(NoH,roughness);
-	vec3 f0 = vec3(0.04f);
+	vec3 f0 = 0.16 * reflectance * reflectance * (1 - mat.metallic) + mat.albedo * mat.metallic;
 	float f90 = 1.0f;
 	vec3 F = F_Schlick(LoH, f0, f90);
 	float V = V_SmithGGXCorrelated(NoV,NoL,roughness);
 
 	vec3 Fr = (D * V) * F;
-	vec3 Fd = mat.albedo * Fd_Lambert();
+	vec3 Fd = mat.albedo * (1 - mat.metallic) * Fd_Lambert();
 
 	vec3 lightColor = vec3(1.0f);
 	outColor = vec4(lightColor * (Fr + Fd) * NoL, 1.0f); 

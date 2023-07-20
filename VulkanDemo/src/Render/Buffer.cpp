@@ -2,13 +2,19 @@
 #include "Context.h"
 
 Buffer::Buffer(size_t size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags property)
-	:m_Size(size), m_Map(nullptr)
+	:m_Size(size)
 {
 	CreateBuffer(size, usage);
 	auto requirements = Context::s_Context->m_Device.getBufferMemoryRequirements(m_Buffer);
 	uint32_t index = Utils::QueryMemoryTypeIndex(requirements, property, Context::s_Context->m_PhysicalDevice.getMemoryProperties());
 	AllocateMemory(index, requirements.size);
 	BindingMemoryToBuffer();
+
+	if ((property & vk::MemoryPropertyFlagBits::eHostVisible) &&
+		(property & vk::MemoryPropertyFlagBits::eHostCoherent))
+	{
+		m_Map = Context::s_Context->m_Device.mapMemory(m_Memory, 0, m_Size);
+	}
 }
 
 Buffer::~Buffer()
